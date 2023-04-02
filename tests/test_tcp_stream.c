@@ -29,11 +29,11 @@ static void *client_thread(void *args)
 
     sleep(1);
 
-    struct tcp_stream *stream = tcp_stream_connect(TCP_ADDR);
+    struct cio_stream *stream = tcp_stream_connect(TCP_ADDR);
     assert_true(stream);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, tcp_stream_get_raw(stream),
+    cio_register(ctx, cio_stream_get_raw(stream),
                  CIOF_T_CONNECT, CIOF_READABLE | CIOF_WRITABLE, stream);
     for (;;) {
         if (client_finished)
@@ -49,16 +49,16 @@ static void *client_thread(void *args)
                 case CIOF_T_CONNECT: {
                     int fd = cioe_get_fd(ev);
                     int code = cioe_get_code(ev);
-                    struct tcp_stream *stream = (struct tcp_stream *)cioe_get_wrapper(ev);
+                    struct cio_stream *stream = (struct cio_stream *)cioe_get_wrapper(ev);
                     if (code == CIOE_WRITABLE) {
                         char *payload = "from client";
-                        int nr = tcp_stream_send(stream, payload, strlen(payload));
+                        int nr = cio_stream_send(stream, payload, strlen(payload));
                         printf("[client:send]: nr:%d, buf:%s\n", nr, payload);
                         cio_unregister(ctx, fd);
                         cio_register(ctx, fd, CIOF_T_CONNECT, CIOF_READABLE, stream);
                     } else if (code == CIOE_READABLE) {
                         char buf[256] = {0};
-                        int nr = tcp_stream_recv(stream, buf, sizeof(buf));
+                        int nr = cio_stream_recv(stream, buf, sizeof(buf));
                         if (nr == 0 || nr == -1) {
                             assert_true(0);
                             client_finished = 1;
@@ -73,7 +73,7 @@ static void *client_thread(void *args)
         }
     }
 
-    tcp_stream_drop(stream);
+    cio_stream_drop(stream);
     sleep(1);
     cio_drop(ctx);
     return NULL;
@@ -89,11 +89,11 @@ static void *server_thread(void *args)
 {
     (void)args;
 
-    struct tcp_listener *listener = tcp_listener_bind(TCP_ADDR);
+    struct cio_listener *listener = tcp_listener_bind(TCP_ADDR);
     assert_true(listener);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, tcp_listener_get_raw(listener),
+    cio_register(ctx, cio_listener_get_raw(listener),
                  CIOF_T_LISTEN, CIOF_READABLE, listener);
     for (;;) {
         if (server_finished)
@@ -108,34 +108,34 @@ static void *server_thread(void *args)
             switch (cioe_get_fd_type(ev)) {
                 case CIOF_T_LISTEN: {
                     int code = cioe_get_code(ev);
-                    struct tcp_listener *listener =
-                        (struct tcp_listener *)cioe_get_wrapper(ev);
+                    struct cio_listener *listener =
+                        (struct cio_listener *)cioe_get_wrapper(ev);
                     if (code == CIOE_READABLE) {
-                        struct tcp_stream *new_stream =
+                        struct cio_stream *new_stream =
                             tcp_listener_accept(listener);
-                        cio_register(ctx, tcp_stream_get_raw(new_stream),
+                        cio_register(ctx, cio_stream_get_raw(new_stream),
                                      CIOF_T_ACCEPT, CIOF_READABLE, new_stream);
                     }
                     break;
                 }
                 case CIOF_T_ACCEPT: {
                     int code = cioe_get_code(ev);
-                    struct tcp_stream *stream =
-                        (struct tcp_stream *)cioe_get_wrapper(ev);
+                    struct cio_stream *stream =
+                        (struct cio_stream *)cioe_get_wrapper(ev);
                     if (code == CIOE_READABLE) {
                         char buf[256] = {0};
-                        int nr = tcp_stream_recv(stream, buf, sizeof(buf));
+                        int nr = cio_stream_recv(stream, buf, sizeof(buf));
                         if (nr == 0 || nr == -1) {
-                            cio_unregister(ctx, tcp_stream_get_raw(stream));
-                            tcp_stream_drop(stream);
+                            cio_unregister(ctx, cio_stream_get_raw(stream));
+                            cio_stream_drop(stream);
                         } else {
                             printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
                             char *payload = "from server";
-                            tcp_stream_send(stream, payload, strlen(payload));
+                            cio_stream_send(stream, payload, strlen(payload));
                             printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
                             sleep(1);
-                            cio_unregister(ctx, tcp_stream_get_raw(stream));
-                            tcp_stream_drop(stream);
+                            cio_unregister(ctx, cio_stream_get_raw(stream));
+                            cio_stream_drop(stream);
                             server_finished = 1;
                         }
                     }
@@ -145,7 +145,7 @@ static void *server_thread(void *args)
         }
     }
 
-    tcp_listener_drop(listener);
+    cio_listener_drop(listener);
     sleep(1);
     cio_drop(ctx);
     return NULL;
