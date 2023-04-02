@@ -82,6 +82,17 @@ void cio_drop(struct cio *ctx)
 
 int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper)
 {
+    struct stream *pos;
+    list_for_each_entry(pos, &ctx->streams, ln) {
+        if (pos->fd == fd) {
+            FD_CLR(fd, &ctx->fds_read);
+            FD_CLR(fd, &ctx->fds_write);
+            list_del(&pos->ln);
+            stream_drop(pos); // it's safe as we break at next line
+            break;
+        }
+    }
+
     struct stream *stream = stream_new(ctx, fd, type, wrapper);
     if (stream == NULL)
         return -1;

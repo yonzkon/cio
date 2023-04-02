@@ -35,7 +35,7 @@ struct cio *cio_new();
 void cio_drop(struct cio *ctx);
 
 /**
- * cio_register
+ * cio_register: next call with same fd will just update the type & flag & wrapper
  * @type: cio_fd_type
  * @flags: cio_fd_flag
  * @wrapper: the wrapper of fd, maybe tcp_stream or something else
