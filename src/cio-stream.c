@@ -24,6 +24,7 @@ struct cio_stream_operations {
     int (*get_raw)(struct cio_stream *stream);
     int (*send)(struct cio_stream *stream, const void *buf, size_t len);
     int (*recv)(struct cio_stream *stream, void *buf, size_t size);
+    struct cio_stream *(*accept)(struct cio_listener *listener);
 };
 
 struct cio_stream {
@@ -69,6 +70,15 @@ void cio_listener_drop(struct cio_listener *listener)
 int cio_listener_get_raw(struct cio_listener *listener)
 {
     return cio_stream_get_raw((struct cio_stream *)listener);
+}
+
+struct cio_stream *cio_listener_accept(struct cio_listener *listener)
+{
+    struct cio_stream *stream = (struct cio_stream *)listener;
+    if(stream->ops->accept)
+        return stream->ops->accept(listener);
+    else
+        return NULL;
 }
 
 static struct cio_stream *__cio_stream_new(
@@ -118,6 +128,7 @@ static struct cio_stream_operations tcp_stream_ops = {
     .get_raw = __cio_stream_get_raw,
     .send = tcp_stream_send,
     .recv = tcp_stream_recv,
+    .accept = NULL,
 };
 
 struct cio_stream *tcp_stream_connect(const char *addr)
@@ -155,13 +166,6 @@ struct cio_stream *tcp_stream_connect(const char *addr)
  * tcp_listener
  */
 
-static struct cio_stream_operations tcp_listener_ops = {
-    .drop = __cio_stream_drop,
-    .get_raw = __cio_stream_get_raw,
-    .send = NULL,
-    .recv = NULL,
-};
-
 struct cio_stream *tcp_listener_accept(struct cio_listener *listener)
 {
     struct cio_stream *stream = (struct cio_stream *)listener;;
@@ -173,6 +177,14 @@ struct cio_stream *tcp_listener_accept(struct cio_listener *listener)
 
     return __cio_stream_new(stream->addr, fd, CIOS_T_ACCEPT, &tcp_stream_ops);
 }
+
+static struct cio_stream_operations tcp_listener_ops = {
+    .drop = __cio_stream_drop,
+    .get_raw = __cio_stream_get_raw,
+    .send = NULL,
+    .recv = NULL,
+    .accept = tcp_listener_accept,
+};
 
 struct cio_listener *tcp_listener_bind(const char *addr)
 {
@@ -234,6 +246,7 @@ static struct cio_stream_operations unix_stream_ops = {
     .get_raw = __cio_stream_get_raw,
     .send = unix_stream_send,
     .recv = unix_stream_recv,
+    .accept = NULL,
 };
 
 struct cio_stream *unix_stream_connect(const char *addr)
@@ -267,13 +280,6 @@ void unix_listener_drop(struct cio_stream *stream)
     __cio_stream_drop(stream);
 }
 
-static struct cio_stream_operations unix_listener_ops = {
-    .drop = unix_listener_drop,
-    .get_raw = __cio_stream_get_raw,
-    .send = NULL,
-    .recv = NULL,
-};
-
 struct cio_stream *unix_listener_accept(struct cio_listener *listener)
 {
     struct cio_stream *stream = (struct cio_stream *)listener;;
@@ -286,6 +292,14 @@ struct cio_stream *unix_listener_accept(struct cio_listener *listener)
     return (struct cio_stream *)__cio_stream_new(
         stream->addr, fd, CIOS_T_ACCEPT, &unix_stream_ops);
 }
+
+static struct cio_stream_operations unix_listener_ops = {
+    .drop = unix_listener_drop,
+    .get_raw = __cio_stream_get_raw,
+    .send = NULL,
+    .recv = NULL,
+    .accept = unix_listener_accept,
+};
 
 struct cio_listener *unix_listener_bind(const char *addr)
 {

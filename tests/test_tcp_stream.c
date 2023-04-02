@@ -49,7 +49,7 @@ static void *client_thread(void *args)
                 case CIOF_T_CONNECT: {
                     int fd = cioe_get_fd(ev);
                     int code = cioe_get_code(ev);
-                    struct cio_stream *stream = (struct cio_stream *)cioe_get_wrapper(ev);
+                    struct cio_stream *stream = cioe_get_wrapper(ev);
                     if (code == CIOE_WRITABLE) {
                         char *payload = "from client";
                         int nr = cio_stream_send(stream, payload, strlen(payload));
@@ -108,11 +108,9 @@ static void *server_thread(void *args)
             switch (cioe_get_fd_type(ev)) {
                 case CIOF_T_LISTEN: {
                     int code = cioe_get_code(ev);
-                    struct cio_listener *listener =
-                        (struct cio_listener *)cioe_get_wrapper(ev);
+                    struct cio_listener *listener = cioe_get_wrapper(ev);
                     if (code == CIOE_READABLE) {
-                        struct cio_stream *new_stream =
-                            tcp_listener_accept(listener);
+                        struct cio_stream *new_stream = cio_listener_accept(listener);
                         cio_register(ctx, cio_stream_get_raw(new_stream),
                                      CIOF_T_ACCEPT, CIOF_READABLE, new_stream);
                     }
@@ -120,8 +118,7 @@ static void *server_thread(void *args)
                 }
                 case CIOF_T_ACCEPT: {
                     int code = cioe_get_code(ev);
-                    struct cio_stream *stream =
-                        (struct cio_stream *)cioe_get_wrapper(ev);
+                    struct cio_stream *stream = cioe_get_wrapper(ev);
                     if (code == CIOE_READABLE) {
                         char buf[256] = {0};
                         int nr = cio_stream_recv(stream, buf, sizeof(buf));
