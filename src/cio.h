@@ -38,8 +38,9 @@ void cio_drop(struct cio *ctx);
  * cio_register
  * @type: cio_fd_type
  * @flags: cio_fd_flag
+ * @wrapper: the wrapper of fd, maybe tcp_stream or something else
  */
-int cio_register(struct cio *ctx, int fd, char type, int flags);
+int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper);
 
 /**
  * cio_unregister
@@ -73,6 +74,12 @@ int cioe_get_fd(struct cio_event *ev);
  * @return: fd_type: CIOF_T_LISTEN:'l', CIOF_T_CONNECT:'c', CIOF_T_ACCEPT:'a'
  */
 char cioe_get_fd_type(struct cio_event *ev);
+
+/**
+ * cioe_get_wrapper
+ * @return: the wrapper of fd, maybe tcp_stream or something else
+ */
+void *cioe_get_wrapper(struct cio_event *ev);
 
 /**
  * cioe_get_ts

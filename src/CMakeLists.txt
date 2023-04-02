@@ -1,5 +1,5 @@
 file(GLOB SRC *.c)
-file(GLOB INC cio.h)
+file(GLOB INC cio.h cio-stream.h)
 
 if (BUILD_STATIC)
     add_library(cio-static STATIC ${SRC} ${SRC_POSIX})

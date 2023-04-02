@@ -80,9 +80,9 @@ void cio_drop(struct cio *ctx)
     free(ctx);
 }
 
-int cio_register(struct cio *ctx, int fd, char type, int flags)
+int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper)
 {
-    struct stream *stream = stream_new(ctx, fd, type);
+    struct stream *stream = stream_new(ctx, fd, type, wrapper);
     if (stream == NULL)
         return -1;
     list_add(&stream->ln, &ctx->streams);
@@ -207,6 +207,11 @@ int cioe_get_fd(struct cio_event *ev)
 char cioe_get_fd_type(struct cio_event *ev)
 {
     return ev->stream->type;
+}
+
+void *cioe_get_wrapper(struct cio_event *ev)
+{
+    return ev->stream->wrapper;
 }
 
 unsigned long cioe_get_ts(struct cio_event *ev)

@@ -18,6 +18,7 @@ struct stream {
     int fd;
     char type; /* cio_fd_type */
     int state; /* stream_state */
+    void *wrapper; /* the fd wrapper */
 
     union {
         u8 byte;
@@ -33,7 +34,7 @@ struct stream {
     struct list_head ln;
 };
 
-struct stream *stream_new(struct cio *ctx, int fd, char type);
+struct stream *stream_new(struct cio *ctx, int fd, char type, void *wrapper);
 void stream_drop(struct stream *stream);
 
 #ifdef __cplusplus

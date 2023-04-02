@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-struct stream *stream_new(struct cio *ctx, int fd, char type)
+struct stream *stream_new(struct cio *ctx, int fd, char type, void *wrapper)
 {
     struct stream *stream = malloc(sizeof(struct stream));
     memset(stream, 0, sizeof(*stream));
@@ -11,6 +11,7 @@ struct stream *stream_new(struct cio *ctx, int fd, char type)
     stream->fd = fd;
     stream->type = type;
     stream->state = STREAM_ST_OPENED;
+    stream->wrapper = wrapper;
 
     stream->ev.byte = 0;
     stream->ev.bits.open = 1;
