@@ -60,12 +60,10 @@ static void *client_thread(void *args)
                         char buf[256] = {0};
                         int nr = unix_stream_recv(stream, buf, sizeof(buf));
                         if (nr == 0 || nr == -1) {
-                            cio_unregister(ctx, unix_stream_get_raw(stream));
-                            unix_stream_drop(stream);
+                            assert_true(0);
+                            client_finished = 1;
                         } else {
                             printf("[client:recv]: nr:%d, buf:%s\n", nr, buf);
-                            cio_unregister(ctx, unix_stream_get_raw(stream));
-                            unix_stream_drop(stream);
                             client_finished = 1;
                         }
                     }
