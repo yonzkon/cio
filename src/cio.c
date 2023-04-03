@@ -80,7 +80,7 @@ void cio_drop(struct cio *ctx)
     free(ctx);
 }
 
-int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper)
+int cio_register(struct cio *ctx, int fd, int token, int flags, void *wrapper)
 {
     struct stream *pos;
     list_for_each_entry(pos, &ctx->streams, ln) {
@@ -93,7 +93,7 @@ int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper)
         }
     }
 
-    struct stream *stream = stream_new(ctx, fd, type, wrapper);
+    struct stream *stream = stream_new(ctx, fd, token, wrapper);
     if (stream == NULL)
         return -1;
     list_add(&stream->ln, &ctx->streams);
@@ -210,19 +210,19 @@ int cioe_get_code(struct cio_event *ev)
     return ev->code;
 }
 
-int cioe_get_fd(struct cio_event *ev)
+int cioe_get_token(struct cio_event *ev)
 {
-    return ev->stream->fd;
-}
-
-char cioe_get_fd_type(struct cio_event *ev)
-{
-    return ev->stream->type;
+    return ev->stream->token;
 }
 
 void *cioe_get_wrapper(struct cio_event *ev)
 {
     return ev->stream->wrapper;
+}
+
+int cioe_get_fd(struct cio_event *ev)
+{
+    return ev->stream->fd;
 }
 
 unsigned long cioe_get_ts(struct cio_event *ev)

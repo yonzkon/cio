@@ -8,12 +8,6 @@ extern "C" {
 struct cio;
 struct cio_event;
 
-enum cio_fd_type {
-    CIOF_T_LISTEN = 'l',
-    CIOF_T_ACCEPT = 'a',
-    CIOF_T_CONNECT = 'c',
-};
-
 enum cio_fd_flag {
     CIOF_READABLE = (1 << 0),
     CIOF_WRITABLE = (1 << 1),
@@ -36,11 +30,11 @@ void cio_drop(struct cio *ctx);
 
 /**
  * cio_register: next call with same fd will just update the type & flag & wrapper
- * @type: cio_fd_type
+ * @token: any value defined by user, maybe 1:LISENTER, 2:STREAM, 3:ACCEPT_STREAM
  * @flags: cio_fd_flag
  * @wrapper: the wrapper of fd, maybe tcp_stream or something else
  */
-int cio_register(struct cio *ctx, int fd, char type, int flags, void *wrapper);
+int cio_register(struct cio *ctx, int fd, int token, int flags, void *wrapper);
 
 /**
  * cio_unregister
@@ -64,22 +58,22 @@ struct cio_event *cioe_iter(struct cio *ctx);
 int cioe_get_code(struct cio_event *ev);
 
 /**
- * cioe_get_fd
- * @return: file descriptor
+ * cioe_get_token
+ * @return: token
  */
-int cioe_get_fd(struct cio_event *ev);
-
-/**
- * cioe_get_type
- * @return: fd_type: CIOF_T_LISTEN:'l', CIOF_T_CONNECT:'c', CIOF_T_ACCEPT:'a'
- */
-char cioe_get_fd_type(struct cio_event *ev);
+int cioe_get_token(struct cio_event *ev);
 
 /**
  * cioe_get_wrapper
  * @return: the wrapper of fd, maybe tcp_stream or something else
  */
 void *cioe_get_wrapper(struct cio_event *ev);
+
+/**
+ * cioe_get_fd
+ * @return: file descriptor
+ */
+int cioe_get_fd(struct cio_event *ev);
 
 /**
  * cioe_get_ts

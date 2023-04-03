@@ -15,6 +15,8 @@
 #include "cio.h"
 
 #define TCP_ADDR "127.0.0.1:1224"
+#define TOKEN_LISTENER 1
+#define TOKEN_STREAM 2
 
 /**
  * client
@@ -56,7 +58,7 @@ static void *client_thread(void *args)
     }
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, fd, CIOF_T_CONNECT, CIOF_READABLE | CIOF_WRITABLE, NULL);
+    cio_register(ctx, fd, TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, NULL);
     for (;;) {
         if (client_finished)
             break;
@@ -65,10 +67,10 @@ static void *client_thread(void *args)
             struct cio_event *ev = cioe_iter(ctx);
             if (!ev) break;
             printf("fetch a event on client: %c,%d\n",
-                   cioe_get_fd_type(ev),
+                   cioe_get_token(ev),
                    cioe_get_code(ev));
-            switch (cioe_get_fd_type(ev)) {
-                case CIOF_T_CONNECT: {
+            switch (cioe_get_token(ev)) {
+                case TOKEN_STREAM: {
                     int fd = cioe_get_fd(ev);
                     int code = cioe_get_code(ev);
                     if (code == CIOE_WRITABLE) {
@@ -76,7 +78,7 @@ static void *client_thread(void *args)
                         int nr = send(fd, payload, strlen(payload), 0);
                         printf("[client:send]: nr:%d, buf:%s\n", nr, payload);
                         cio_unregister(ctx, fd);
-                        cio_register(ctx, fd, CIOF_T_CONNECT, CIOF_READABLE, NULL);
+                        cio_register(ctx, fd, TOKEN_STREAM, CIOF_READABLE, NULL);
                     } else if (code == CIOE_READABLE) {
                         char buf[256] = {0};
                         int nr = recv(fd, buf, sizeof(buf), 0);
@@ -141,7 +143,7 @@ static void *server_thread(void *args)
     }
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, fd, CIOF_T_LISTEN, CIOF_READABLE, NULL);
+    cio_register(ctx, fd, TOKEN_LISTENER, CIOF_READABLE, NULL);
     for (;;) {
         if (server_finished)
             break;
@@ -150,19 +152,19 @@ static void *server_thread(void *args)
             struct cio_event *ev = cioe_iter(ctx);
             if (!ev) break;
             printf("fetch a event on server: %c,%d\n",
-                   cioe_get_fd_type(ev),
+                   cioe_get_token(ev),
                    cioe_get_code(ev));
-            switch (cioe_get_fd_type(ev)) {
-                case CIOF_T_LISTEN: {
+            switch (cioe_get_token(ev)) {
+                case TOKEN_LISTENER: {
                     int fd = cioe_get_fd(ev);
                     int code = cioe_get_code(ev);
                     if (code == CIOE_READABLE) {
                         int new_fd = accept(fd, NULL, NULL);
-                        cio_register(ctx, new_fd, CIOF_T_ACCEPT, CIOF_READABLE, NULL);
+                        cio_register(ctx, new_fd, TOKEN_STREAM, CIOF_READABLE, NULL);
                     }
                     break;
                 }
-                case CIOF_T_ACCEPT: {
+                case TOKEN_STREAM: {
                     int fd = cioe_get_fd(ev);
                     int code = cioe_get_code(ev);
                     if (code == CIOE_READABLE) {

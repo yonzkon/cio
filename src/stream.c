@@ -3,13 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-struct stream *stream_new(struct cio *ctx, int fd, char type, void *wrapper)
+struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
 {
     struct stream *stream = malloc(sizeof(struct stream));
     memset(stream, 0, sizeof(*stream));
 
     stream->fd = fd;
-    stream->type = type;
+    stream->token = token;
     stream->state = STREAM_ST_OPENED;
     stream->wrapper = wrapper;
 

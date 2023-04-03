@@ -16,7 +16,7 @@ enum stream_state {
 
 struct stream {
     int fd;
-    char type; /* cio_fd_type */
+    int token;
     int state; /* stream_state */
     void *wrapper; /* the fd wrapper */
 
@@ -34,7 +34,7 @@ struct stream {
     struct list_head ln;
 };
 
-struct stream *stream_new(struct cio *ctx, int fd, char type, void *wrapper);
+struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper);
 void stream_drop(struct stream *stream);
 
 #ifdef __cplusplus
