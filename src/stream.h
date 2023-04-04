@@ -8,23 +8,14 @@
 extern "C" {
 #endif
 
-enum stream_state {
-    STREAM_ST_OPENED = 1,
-    STREAM_ST_FINISHED,
-    STREAM_ST_CLOSED,
-};
-
 struct stream {
     int fd;
     int token;
-    int state; /* stream_state */
     void *wrapper; /* the fd wrapper */
 
     union {
         u8 byte;
         struct {
-            u8 open:1;
-            u8 close:1;
             u8 readable:1;
             u8 writable:1;
         } bits;

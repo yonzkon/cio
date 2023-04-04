@@ -18,17 +18,12 @@
 #define TOKEN_LISTENER 1
 #define TOKEN_STREAM 2
 
-/**
- * client
- */
-
 static int client_finished = 0;
+static int server_finished = 0;
 
 static void *client_thread(void *args)
 {
     (void)args;
-
-    sleep(1);
 
     int fd = socket(PF_INET, SOCK_STREAM, 0);
     if (fd == -1)
@@ -66,7 +61,7 @@ static void *client_thread(void *args)
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on client: %c,%d\n",
+            printf("fetch a event on client: %d,%d\n",
                    cioe_get_token(ev),
                    cioe_get_code(ev));
             switch (cioe_get_token(ev)) {
@@ -90,18 +85,11 @@ static void *client_thread(void *args)
             }
         }
     }
-    cio_drop(ctx);
 
     close(fd);
-    sleep(1);
+    cio_drop(ctx);
     return NULL;
 }
-
-/**
- * server
- */
-
-static int server_finished = 0;
 
 static void *server_thread(void *args)
 {
@@ -145,13 +133,13 @@ static void *server_thread(void *args)
     struct cio *ctx = cio_new();
     cio_register(ctx, fd, TOKEN_LISTENER, CIOF_READABLE, NULL);
     for (;;) {
-        if (server_finished)
+        if (server_finished && client_finished)
             break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on server: %c,%d\n",
+            printf("fetch a event on server: %d,%d\n",
                    cioe_get_token(ev),
                    cioe_get_code(ev));
             switch (cioe_get_token(ev)) {
@@ -170,27 +158,27 @@ static void *server_thread(void *args)
                     if (code == CIOE_READABLE) {
                         char buf[256] = {0};
                         int nr = recv(fd, buf, sizeof(buf), 0);
-                        printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
-                        char *payload = "from server";
-                        send(fd, payload, strlen(payload), 0);
-                        printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
-                        server_finished = 1;
+                        if (nr == 0 || nr == -1) {
+                            cio_unregister(ctx, fd);
+                            close(fd);
+                            server_finished = 1;
+                        } else {
+                            printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
+                            char *payload = "from server";
+                            send(fd, payload, strlen(payload), 0);
+                            printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
+                        }
                     }
                     break;
                 }
             }
         }
     }
-    cio_drop(ctx);
 
     close(fd);
-    sleep(1);
+    cio_drop(ctx);
     return NULL;
 }
-
-/**
- * test_cio
- */
 
 static void test_cio(void **status)
 {
@@ -198,12 +186,16 @@ static void test_cio(void **status)
 
     pthread_t server_pid;
     pthread_create(&server_pid, NULL, server_thread, NULL);
+    sleep(1);
     pthread_t client_pid;
     pthread_create(&client_pid, NULL, client_thread, NULL);
 
     for (;;) {
-        if (client_finished && server_finished)
+        if (client_finished && server_finished) {
             break;
+        } else {
+            sleep(1);
+        }
     }
 
     pthread_join(client_pid, NULL);

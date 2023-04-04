@@ -10,11 +10,9 @@ struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
 
     stream->fd = fd;
     stream->token = token;
-    stream->state = STREAM_ST_OPENED;
     stream->wrapper = wrapper;
 
     stream->ev.byte = 0;
-    stream->ev.bits.open = 1;
 
     stream->ctx = ctx;
     INIT_LIST_HEAD(&stream->ln);
@@ -24,13 +22,6 @@ struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
 
 void stream_drop(struct stream *stream)
 {
-    if (stream->state != STREAM_ST_FINISHED) {
-        stream->ev.bits.close = 1;
-        return;
-    }
-
-    assert(stream->state == STREAM_ST_FINISHED);
-
     stream->ctx = NULL;
     list_del_init(&stream->ln);
     free(stream);

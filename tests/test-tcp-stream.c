@@ -19,17 +19,12 @@
 #define TOKEN_LISTENER 1
 #define TOKEN_STREAM 2
 
-/**
- * client
- */
-
 static int client_finished = 0;
+static int server_finished = 0;
 
 static void *client_thread(void *args)
 {
     (void)args;
-
-    sleep(1);
 
     struct cio_stream *stream = tcp_stream_connect(TCP_ADDR);
     assert_true(stream);
@@ -44,7 +39,7 @@ static void *client_thread(void *args)
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on client: %c,%d\n",
+            printf("fetch a event on client: %d,%d\n",
                    cioe_get_token(ev),
                    cioe_get_code(ev));
             switch (cioe_get_token(ev)) {
@@ -76,16 +71,9 @@ static void *client_thread(void *args)
     }
 
     cio_stream_drop(stream);
-    sleep(1);
     cio_drop(ctx);
     return NULL;
 }
-
-/**
- * server
- */
-
-static int server_finished = 0;
 
 static void *server_thread(void *args)
 {
@@ -98,13 +86,13 @@ static void *server_thread(void *args)
     cio_register(ctx, cio_listener_get_fd(listener),
                  TOKEN_LISTENER, CIOF_READABLE, listener);
     for (;;) {
-        if (server_finished)
+        if (server_finished && client_finished)
             break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on server: %c,%d\n",
+            printf("fetch a event on server: %d,%d\n",
                    cioe_get_token(ev),
                    cioe_get_code(ev));
             switch (cioe_get_token(ev)) {
@@ -127,15 +115,12 @@ static void *server_thread(void *args)
                         if (nr == 0 || nr == -1) {
                             cio_unregister(ctx, cio_stream_get_fd(stream));
                             cio_stream_drop(stream);
+                            server_finished = 1;
                         } else {
                             printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
                             char *payload = "from server";
                             cio_stream_send(stream, payload, strlen(payload));
                             printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
-                            sleep(1);
-                            cio_unregister(ctx, cio_stream_get_fd(stream));
-                            cio_stream_drop(stream);
-                            server_finished = 1;
                         }
                     }
                     break;
@@ -145,27 +130,26 @@ static void *server_thread(void *args)
     }
 
     cio_listener_drop(listener);
-    sleep(1);
     cio_drop(ctx);
     return NULL;
 }
 
-/**
- * test_cio
- */
-
-static void test_cio(void **status)
+static void test_tcp_stream(void **status)
 {
     (void)status;
 
     pthread_t server_pid;
     pthread_create(&server_pid, NULL, server_thread, NULL);
+    sleep(1);
     pthread_t client_pid;
     pthread_create(&client_pid, NULL, client_thread, NULL);
 
     for (;;) {
-        if (client_finished && server_finished)
+        if (client_finished && server_finished) {
             break;
+        } else {
+            sleep(1);
+        }
     }
 
     pthread_join(client_pid, NULL);
@@ -175,7 +159,7 @@ static void test_cio(void **status)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_cio),
+        cmocka_unit_test(test_tcp_stream),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
