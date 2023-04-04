@@ -35,7 +35,7 @@ static void *client_thread(void *args)
     assert_true(stream);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, cio_stream_get_raw(stream),
+    cio_register(ctx, cio_stream_get_fd(stream),
                  TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, stream);
     for (;;) {
         if (client_finished)
@@ -95,7 +95,7 @@ static void *server_thread(void *args)
     assert_true(listener);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, cio_listener_get_raw(listener),
+    cio_register(ctx, cio_listener_get_fd(listener),
                  TOKEN_LISTENER, CIOF_READABLE, listener);
     for (;;) {
         if (server_finished)
@@ -113,7 +113,7 @@ static void *server_thread(void *args)
                     struct cio_listener *listener = cioe_get_wrapper(ev);
                     if (code == CIOE_READABLE) {
                         struct cio_stream *new_stream = cio_listener_accept(listener);
-                        cio_register(ctx, cio_stream_get_raw(new_stream),
+                        cio_register(ctx, cio_stream_get_fd(new_stream),
                                      TOKEN_STREAM, CIOF_READABLE, new_stream);
                     }
                     break;
@@ -125,7 +125,7 @@ static void *server_thread(void *args)
                         char buf[256] = {0};
                         int nr = cio_stream_recv(stream, buf, sizeof(buf));
                         if (nr == 0 || nr == -1) {
-                            cio_unregister(ctx, cio_stream_get_raw(stream));
+                            cio_unregister(ctx, cio_stream_get_fd(stream));
                             cio_stream_drop(stream);
                         } else {
                             printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
@@ -133,7 +133,7 @@ static void *server_thread(void *args)
                             cio_stream_send(stream, payload, strlen(payload));
                             printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
                             sleep(1);
-                            cio_unregister(ctx, cio_stream_get_raw(stream));
+                            cio_unregister(ctx, cio_stream_get_fd(stream));
                             cio_stream_drop(stream);
                             server_finished = 1;
                         }
