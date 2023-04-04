@@ -193,7 +193,7 @@ int cio_poll(struct cio *ctx, u64 usec)
     return 0;
 }
 
-struct cio_event *cioe_iter(struct cio *ctx)
+struct cio_event *cio_iter(struct cio *ctx)
 {
     struct cio_event *pos;
     list_for_each_entry(pos, &ctx->events, ln) {
@@ -215,14 +215,14 @@ int cioe_get_token(struct cio_event *ev)
     return ev->stream->token;
 }
 
-void *cioe_get_wrapper(struct cio_event *ev)
-{
-    return ev->stream->wrapper;
-}
-
 int cioe_get_fd(struct cio_event *ev)
 {
     return ev->stream->fd;
+}
+
+void *cioe_get_wrapper(struct cio_event *ev)
+{
+    return ev->stream->wrapper;
 }
 
 unsigned long cioe_get_ts(struct cio_event *ev)

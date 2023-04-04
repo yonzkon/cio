@@ -42,7 +42,7 @@ static void *client_thread(void *args)
             break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
         for (;;) {
-            struct cio_event *ev = cioe_iter(ctx);
+            struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
             printf("fetch a event on client: %c,%d\n",
                    cioe_get_token(ev),
@@ -102,7 +102,7 @@ static void *server_thread(void *args)
             break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
         for (;;) {
-            struct cio_event *ev = cioe_iter(ctx);
+            struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
             printf("fetch a event on server: %c,%d\n",
                    cioe_get_token(ev),
