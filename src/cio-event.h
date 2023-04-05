@@ -13,9 +13,11 @@ extern "C" {
 struct cio_event {
     int fin;
     int code;
+    int token;
+    int fd;
+    void *wrapper;
     struct timeval ts;
     struct stream *stream;
-    struct cio *ctx;
     struct list_head ln;
 };
 

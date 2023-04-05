@@ -33,9 +33,11 @@ static void add_event(struct cio *ctx, struct stream *stream, int evcode)
     bzero(pos, sizeof(*pos));
     pos->fin = 0;
     pos->code = evcode;
+    pos->token = stream->token;
+    pos->fd = stream->fd;
+    pos->wrapper = stream->wrapper;
     gettimeofday(&pos->ts, NULL);
     pos->stream = stream;
-    pos->ctx = ctx;
     INIT_LIST_HEAD(&pos->ln);
     list_add_tail(&pos->ln, &ctx->events);
 }
@@ -212,17 +214,17 @@ int cioe_get_code(struct cio_event *ev)
 
 int cioe_get_token(struct cio_event *ev)
 {
-    return ev->stream->token;
+    return ev->token;
 }
 
 int cioe_get_fd(struct cio_event *ev)
 {
-    return ev->stream->fd;
+    return ev->fd;
 }
 
 void *cioe_get_wrapper(struct cio_event *ev)
 {
-    return ev->stream->wrapper;
+    return ev->wrapper;
 }
 
 unsigned long cioe_get_ts(struct cio_event *ev)
