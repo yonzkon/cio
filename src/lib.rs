@@ -2,9 +2,9 @@ use std::ffi::{CString, c_void};
 use std::io::Error;
 use log::trace;
 
-pub struct CioFdFlag;
+pub struct CioFlag;
 
-impl CioFdFlag {
+impl CioFlag {
     pub const READABLE: i32 = (1<<0);
     pub const WRITABLE: i32 = (1<<1);
 }
@@ -180,20 +180,29 @@ impl CioListener {
  * CioEvent
  */
 
-pub struct CioEventCode;
-
-impl CioEventCode {
-    pub const READABLE: i32 = 1;
-    pub const WRITABLE: i32 = 2;
-}
-
 pub struct CioEvent {
     pub ev: *mut cio_sys::cio_event,
 }
 
 impl CioEvent {
-    pub fn get_code(&self) -> i32 {
-        unsafe { return cio_sys::cioe_get_code(self.ev); }
+    pub fn is_readable(&self) -> bool {
+        unsafe {
+            if cio_sys::cioe_is_readable(self.ev) == 1 {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    pub fn is_writable(&self) -> bool {
+        unsafe {
+            if cio_sys::cioe_is_writable(self.ev) == 1 {
+                true
+            } else {
+                false
+            }
+        }
     }
 
     pub fn get_token(&self) -> i32 {

@@ -8,19 +8,19 @@
 extern "C" {
 #endif
 
+union stream_state {
+    u8 byte;
+    struct {
+        u8 readable:1;
+        u8 writable:1;
+    } bits;
+};
+
 struct stream {
     int fd;
     int token;
     void *wrapper; /* the fd wrapper */
-
-    union {
-        u8 byte;
-        struct {
-            u8 readable:1;
-            u8 writable:1;
-        } bits;
-    } ev;
-
+    union stream_state state;
     struct cio *ctx;
     struct list_head ln;
 };

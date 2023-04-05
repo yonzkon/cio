@@ -32,6 +32,7 @@ static void *client_thread(void *args)
     struct cio *ctx = cio_new();
     cio_register(ctx, cio_stream_get_fd(stream),
                  TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, stream);
+
     for (;;) {
         if (client_finished)
             break;
@@ -39,30 +40,26 @@ static void *client_thread(void *args)
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on client: %d,%d\n",
-                   cioe_get_token(ev),
-                   cioe_get_code(ev));
+            printf("[client:iter]: fetch a event on client: token:%d, read:%d, write:%d\n",
+                   cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
                 case TOKEN_STREAM: {
                     int fd = cioe_get_fd(ev);
-                    int code = cioe_get_code(ev);
                     struct cio_stream *stream = cioe_get_wrapper(ev);
-                    if (code == CIOE_WRITABLE) {
+                    if (cioe_is_writable(ev)) {
                         char *payload = "from client";
                         int nr = cio_stream_send(stream, payload, strlen(payload));
+                        assert_true(nr > 0);
                         printf("[client:send]: nr:%d, buf:%s\n", nr, payload);
-                        cio_unregister(ctx, fd);
+                        // send once, then wait response
                         cio_register(ctx, fd,TOKEN_STREAM, CIOF_READABLE, stream);
-                    } else if (code == CIOE_READABLE) {
+                    }
+                    if (cioe_is_readable(ev)) {
                         char buf[256] = {0};
                         int nr = cio_stream_recv(stream, buf, sizeof(buf));
-                        if (nr == 0 || nr == -1) {
-                            assert_true(0);
-                            client_finished = 1;
-                        } else {
-                            printf("[client:recv]: nr:%d, buf:%s\n", nr, buf);
-                            client_finished = 1;
-                        }
+                        assert_true(nr > 0);
+                        printf("[client:recv]: nr:%d, buf:%s\n", nr, buf);
+                        client_finished = 1;
                     }
                     break;
                 }
@@ -72,6 +69,7 @@ static void *client_thread(void *args)
 
     cio_stream_drop(stream);
     cio_drop(ctx);
+    printf("[client]: eixt\n");
     return NULL;
 }
 
@@ -85,6 +83,7 @@ static void *server_thread(void *args)
     struct cio *ctx = cio_new();
     cio_register(ctx, cio_listener_get_fd(listener),
                  TOKEN_LISTENER, CIOF_READABLE, listener);
+
     for (;;) {
         if (server_finished && client_finished)
             break;
@@ -92,35 +91,36 @@ static void *server_thread(void *args)
         for (;;) {
             struct cio_event *ev = cio_iter(ctx);
             if (!ev) break;
-            printf("fetch a event on server: %d,%d\n",
-                   cioe_get_token(ev),
-                   cioe_get_code(ev));
+            printf("[server:iter]: fetch a event on server: token:%d, read:%d, write:%d\n",
+                   cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
                 case TOKEN_LISTENER: {
-                    int code = cioe_get_code(ev);
                     struct cio_listener *listener = cioe_get_wrapper(ev);
-                    if (code == CIOE_READABLE) {
+                    if (cioe_is_readable(ev)) {
                         struct cio_stream *new_stream = cio_listener_accept(listener);
                         cio_register(ctx, cio_stream_get_fd(new_stream),
-                                     TOKEN_STREAM, CIOF_READABLE, new_stream);
+                                     TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, new_stream);
                     }
                     break;
                 }
                 case TOKEN_STREAM: {
-                    int code = cioe_get_code(ev);
                     struct cio_stream *stream = cioe_get_wrapper(ev);
-                    if (code == CIOE_READABLE) {
+                    if (cioe_is_readable(ev)) {
                         char buf[256] = {0};
                         int nr = cio_stream_recv(stream, buf, sizeof(buf));
                         if (nr == 0 || nr == -1) {
+                            printf("[server:recv]: nr:%d, client fin\n", nr);
                             cio_unregister(ctx, cio_stream_get_fd(stream));
                             cio_stream_drop(stream);
                             server_finished = 1;
                         } else {
                             printf("[server:recv]: nr:%d, buf:%s\n", nr, buf);
-                            char *payload = "from server";
-                            cio_stream_send(stream, payload, strlen(payload));
-                            printf("[server:send]: nr:%d, buf:%s\n", nr, payload);
+                            if (cioe_is_writable(ev)) {
+                                char *payload = "from server";
+                                cio_stream_send(stream, payload, strlen(payload));
+                                printf("[server:send]: nr:%d, buf:%s\n",
+                                       (int)strlen(payload), payload);
+                            }
                         }
                     }
                     break;
@@ -131,6 +131,7 @@ static void *server_thread(void *args)
 
     cio_listener_drop(listener);
     cio_drop(ctx);
+    printf("[server]: eixt\n");
     return NULL;
 }
 

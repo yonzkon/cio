@@ -8,14 +8,9 @@ extern "C" {
 struct cio;
 struct cio_event;
 
-enum cio_fd_flag {
+enum cio_flag {
     CIOF_READABLE = (1 << 0),
     CIOF_WRITABLE = (1 << 1),
-};
-
-enum cio_event_code {
-    CIOE_READABLE = 1,
-    CIOE_WRITABLE = 2,
 };
 
 /**
@@ -52,10 +47,14 @@ int cio_poll(struct cio *ctx, unsigned long usec);
 struct cio_event *cio_iter(struct cio *ctx);
 
 /**
- * cioe_get_code
- * @return: event_code: CIOE_READABLE:1, CIOE_WRITABLE:2
+ * cioe_is_readable
  */
-int cioe_get_code(struct cio_event *ev);
+int cioe_is_readable(struct cio_event *ev);
+
+/**
+ * cioe_is_writable
+ */
+int cioe_is_writable(struct cio_event *ev);
 
 /**
  * cioe_get_token

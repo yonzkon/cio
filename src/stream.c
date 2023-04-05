@@ -11,9 +11,7 @@ struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
     stream->fd = fd;
     stream->token = token;
     stream->wrapper = wrapper;
-
-    stream->ev.byte = 0;
-
+    stream->state.byte = 0;
     stream->ctx = ctx;
     INIT_LIST_HEAD(&stream->ln);
 

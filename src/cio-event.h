@@ -12,10 +12,10 @@ extern "C" {
 
 struct cio_event {
     int fin;
-    int code;
     int token;
     int fd;
     void *wrapper;
+    union stream_state state;
     struct timeval ts;
     struct stream *stream;
     struct list_head ln;

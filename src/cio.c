@@ -1,10 +1,10 @@
 #include "cio.h"
 #include <unistd.h>
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <strings.h>
 #include "cio-event.h"
 #include "stream.h"
 
@@ -18,24 +18,28 @@ struct cio {
     struct list_head events;
 
     struct timeval poll_ts;
-    u64 idle_usec;
+    unsigned long idle_usec;
 };
 
-static void add_event(struct cio *ctx, struct stream *stream, int evcode)
+static void add_event(struct cio *ctx, struct stream *stream)
 {
+    //printf("[%p:add_event]: fd:%d, readable:%d, writable:%d\n",
+    //       ctx, stream->fd, stream->state.bits.readable, stream->state.bits.writable);
+
     struct cio_event *pos;
     list_for_each_entry(pos, &ctx->events, ln) {
-        if (pos->fin == 0 && pos->stream == stream && pos->code == evcode)
+        if (pos->fin == 0 && pos->stream == stream &&
+            pos->state.byte == stream->state.byte)
             return;
     }
 
     pos = malloc(sizeof(*pos));
     bzero(pos, sizeof(*pos));
     pos->fin = 0;
-    pos->code = evcode;
     pos->token = stream->token;
     pos->fd = stream->fd;
     pos->wrapper = stream->wrapper;
+    pos->state.byte = stream->state.byte;
     gettimeofday(&pos->ts, NULL);
     pos->stream = stream;
     INIT_LIST_HEAD(&pos->ln);
@@ -131,7 +135,7 @@ int cio_unregister(struct cio *ctx, int fd)
     return -1;
 }
 
-static void cio_idle(struct cio *ctx, u64 usec)
+static void cio_idle(struct cio *ctx, unsigned long usec)
 {
     if (list_empty(&ctx->events)) {
         usleep(ctx->idle_usec);
@@ -145,7 +149,7 @@ static void cio_idle(struct cio *ctx, u64 usec)
     }
 }
 
-int cio_poll(struct cio *ctx, u64 usec)
+int cio_poll(struct cio *ctx, unsigned long usec)
 {
     gettimeofday(&ctx->poll_ts, NULL);
     clear_event(ctx);
@@ -172,24 +176,45 @@ int cio_poll(struct cio *ctx, u64 usec)
             return -1;
     }
 
+    //printf("[%p:poll]: nr_fds_read:%d, nr_fds_write:%d\n",
+    //       ctx, nr_fds_read, nr_fds_write);
+
     struct stream *pos;
     list_for_each_entry(pos, &ctx->streams, ln) {
+        // save previous writable state
+        u8 pre_writable = pos->state.bits.writable;
+
+        // clear state
+        pos->state.byte = 0;
+
+        // set readable
         if (nr_fds_read != 0) {
             if (FD_ISSET(pos->fd, &fds_read)) {
                 nr_fds_read--;
-                pos->ev.bits.readable = 1;
-                add_event(ctx, pos, CIOE_READABLE);
+                pos->state.bits.readable = 1;
             }
         }
 
+        // set writable
         if (nr_fds_write != 0) {
             if (FD_ISSET(pos->fd, &fds_write)) {
                 nr_fds_write--;
-                pos->ev.bits.writable = 1;
-                add_event(ctx, pos, CIOE_WRITABLE);
+                pos->state.bits.writable = 1;
             }
         }
+
+        //printf("[%p:poll]: fd:%d, readable:%d, writable:%d\n",
+        //       ctx, pos->fd, pos->state.bits.readable, pos->state.bits.writable);
+
+        // if readable or writable from 0 to 1
+        if (pos->state.bits.readable ||
+            (pos->state.bits.writable && !pre_writable)) {
+            add_event(ctx, pos);
+        }
     }
+
+    assert(nr_fds_read == 0);
+    assert(nr_fds_write == 0);
 
     cio_idle(ctx, usec);
     return 0;
@@ -207,9 +232,14 @@ struct cio_event *cio_iter(struct cio *ctx)
     return NULL;
 }
 
-int cioe_get_code(struct cio_event *ev)
+int cioe_is_readable(struct cio_event *ev)
 {
-    return ev->code;
+    return ev->state.bits.readable;
+}
+
+int cioe_is_writable(struct cio_event *ev)
+{
+    return ev->state.bits.writable;
 }
 
 int cioe_get_token(struct cio_event *ev)
