@@ -36,11 +36,11 @@ fn main() {
 
     // unix_server init
     let unix_server = cio::CioListener::unix_bind("/tmp/cio")
-        .expect("listen unix socket failed");
+        .expect("listen unix failed");
 
     // tcp_server init
-    let tcp_server = cio::CioListener::tcp_bind("127.0.0.1:60000")
-        .expect("listen tcp socket failed");
+    let tcp_server = cio::CioListener::tcp_bind("127.0.0.1:6000")
+        .expect("listen tcp failed");
 
     // cio init
     let ctx = cio::Cio::new().unwrap();
@@ -55,7 +55,6 @@ fn main() {
         *EXIT_FLANG.lock().unwrap() = 1;
     }).expect("Error setting Ctrl-C handler");
 
-    // main loop
     loop {
         if *EXIT_FLANG.lock().unwrap() == 1 {
             break;
@@ -63,53 +62,42 @@ fn main() {
 
         assert!(ctx.poll(100 * 1000) != -1);
 
-        loop {
-            if let Some(ev) = ctx.cio_iter() {
-                info!("token:{}, readable:{}, writable:{}",
-                      ev.get_token(), ev.is_readable(), ev.is_writable());
-                match ev.get_token() {
-                    x if x == unix_server.fd => {
-                        if ev.is_readable() {
-                            let new_stream = unix_server.accept().expect("accept failed");
-                            ctx.register(&new_stream, new_stream.fd,
-                                         cio::CioFlag::READABLE |
-                                         cio::CioFlag::WRITABLE);
-                            streams.insert(new_stream.fd, new_stream);
-                        }
-                    },
-                    x if x == tcp_server.fd => {
-                        if ev.is_readable()  {
-                            let new_stream = tcp_server.accept().expect("accept failed");
-                            ctx.register(&new_stream, new_stream.fd,
-                                         cio::CioFlag::READABLE |
-                                         cio::CioFlag::WRITABLE);
-                            streams.insert(new_stream.fd, new_stream);
-                        }
-                    },
-                    _ => {
-                        if ev.is_readable() {
-                            if let Some(stream) = streams.get(&ev.get_token()) {
-                                let mut buf: [u8;256] = [0;256];
-                                let nr = stream.recv(&mut buf);
-                                if nr == 0 || nr == -1 {
-                                    let stream = streams.remove(&ev.get_token())
-                                        .expect("stream not in hashmap");
-                                    ctx.unregister(&stream);
-                                } else {
-                                    if ev.is_writable() {
-                                        info!("nr:{}, buf:{}",
-                                              nr, std::str::from_utf8(&buf).unwrap());
-                                        stream.send(&buf);
-                                    }
-                                }
-                            } else {
-                                error!("unkown token:{}", ev.get_token());
+        while let Some(ev) = ctx.cio_iter() {
+            info!("token:{}, readable:{}, writable:{}",
+                  ev.get_token(), ev.is_readable(), ev.is_writable());
+            match ev.get_token() {
+                x if x == unix_server.fd => {
+                    if ev.is_readable() {
+                        let new_stream = unix_server.accept().expect("accept failed");
+                        ctx.register(&new_stream, new_stream.fd,
+                                     cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
+                        streams.insert(new_stream.fd, new_stream);
+                    }
+                },
+                x if x == tcp_server.fd => {
+                    if ev.is_readable()  {
+                        let new_stream = tcp_server.accept().expect("accept failed");
+                        ctx.register(&new_stream, new_stream.fd,
+                                     cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
+                        streams.insert(new_stream.fd, new_stream);
+                    }
+                },
+                _ => {
+                    if ev.is_readable() {
+                        if let Some(stream) = streams.get(&ev.get_token()) {
+                            let mut buf: [u8;256] = [0;256];
+                            let nr = stream.recv(&mut buf);
+                            if nr == 0 || nr == -1 {
+                                ctx.unregister(&streams.remove(&ev.get_token()).unwrap());
+                            } else if ev.is_writable() {
+                                info!("nr:{}, buf:{}", nr, std::str::from_utf8(&buf).unwrap());
+                                stream.send(&buf);
                             }
+                        } else {
+                            error!("unkown token:{}", ev.get_token());
                         }
-                    },
-                }
-            } else {
-                break;
+                    }
+                },
             }
         }
     }

@@ -56,12 +56,11 @@ static void *client_thread(void *args)
     cio_register(ctx, fd, TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, NULL);
 
     for (;;) {
-        if (client_finished)
-            break;
+        if (client_finished) break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
-        for (;;) {
-            struct cio_event *ev = cio_iter(ctx);
-            if (!ev) break;
+
+        struct cio_event *ev;
+        while ((ev = cio_iter(ctx))) {
             printf("[client:iter]: fetch a event on client: token:%d, read:%d, write:%d\n",
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
@@ -137,12 +136,11 @@ static void *server_thread(void *args)
     cio_register(ctx, fd, TOKEN_LISTENER, CIOF_READABLE, NULL);
 
     for (;;) {
-        if (server_finished && client_finished)
-            break;
+        if (server_finished && client_finished) break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
-        for (;;) {
-            struct cio_event *ev = cio_iter(ctx);
-            if (!ev) break;
+
+        struct cio_event *ev;
+        while ((ev = cio_iter(ctx))) {
             printf("[server:iter]: fetch a event on server: token:%d, read:%d, write:%d\n",
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {

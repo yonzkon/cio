@@ -30,16 +30,15 @@ static void *client_thread(void *args)
     assert_true(stream);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, cio_stream_get_fd(stream),
-                 TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, stream);
+    cio_register(ctx, cio_stream_get_fd(stream), TOKEN_STREAM,
+                 CIOF_READABLE | CIOF_WRITABLE, stream);
 
     for (;;) {
-        if (client_finished)
-            break;
+        if (client_finished) break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
-        for (;;) {
-            struct cio_event *ev = cio_iter(ctx);
-            if (!ev) break;
+
+        struct cio_event *ev;
+        while ((ev = cio_iter(ctx))) {
             printf("[client:iter]: fetch a event on client: token:%d, read:%d, write:%d\n",
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
@@ -81,16 +80,14 @@ static void *server_thread(void *args)
     assert_true(listener);
 
     struct cio *ctx = cio_new();
-    cio_register(ctx, cio_listener_get_fd(listener),
-                 TOKEN_LISTENER, CIOF_READABLE, listener);
+    cio_register(ctx, cio_listener_get_fd(listener), TOKEN_LISTENER, CIOF_READABLE, listener);
 
     for (;;) {
-        if (server_finished && client_finished)
-            break;
+        if (server_finished && client_finished) break;
         assert_true(cio_poll(ctx, 100 * 1000) == 0);
-        for (;;) {
-            struct cio_event *ev = cio_iter(ctx);
-            if (!ev) break;
+
+        struct cio_event *ev;
+        while ((ev = cio_iter(ctx))) {
             printf("[server:iter]: fetch a event on server: token:%d, read:%d, write:%d\n",
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
@@ -98,8 +95,8 @@ static void *server_thread(void *args)
                     struct cio_listener *listener = cioe_get_wrapper(ev);
                     if (cioe_is_readable(ev)) {
                         struct cio_stream *new_stream = cio_listener_accept(listener);
-                        cio_register(ctx, cio_stream_get_fd(new_stream),
-                                     TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, new_stream);
+                        cio_register(ctx, cio_stream_get_fd(new_stream), TOKEN_STREAM,
+                                     CIOF_READABLE | CIOF_WRITABLE, new_stream);
                     }
                     break;
                 }
