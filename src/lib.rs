@@ -46,25 +46,10 @@ impl CioWrapper for CioStream {
 }
 
 impl CioStream {
-    pub fn tcp_connect(addr: &str) -> Result<CioStream, Error> {
-        let addr = std::ffi::CString::new(addr).unwrap();
-        unsafe {
-            let stream = cio_sys::tcp_stream_connect(addr.as_ptr());
-            if stream.is_null() {
-                Err(Error::last_os_error())
-            } else {
-                Ok(CioStream {
-                    stream: stream,
-                    fd: cio_sys::cio_stream_get_fd(stream),
-                })
-            }
-        }
-    }
-
-    pub fn unix_connect(addr: &str) -> Result<CioStream, Error> {
+    pub fn connect(addr: &str) -> Result<CioStream, Error> {
         let addr = CString::new(addr).unwrap();
         unsafe {
-            let stream = cio_sys::unix_stream_connect(addr.as_ptr());
+            let stream = cio_sys::cio_stream_connect(addr.as_ptr());
             if stream.is_null() {
                 Err(Error::last_os_error())
             } else {
@@ -127,25 +112,10 @@ impl CioWrapper for CioListener {
 }
 
 impl CioListener {
-    pub fn tcp_bind(addr: &str) -> Result<CioListener, Error> {
-        let addr = std::ffi::CString::new(addr).unwrap();
-        unsafe {
-            let listener = cio_sys::tcp_listener_bind(addr.as_ptr());
-            if listener.is_null() {
-                Err(Error::last_os_error())
-            } else {
-                Ok(CioListener {
-                    listener: listener,
-                    fd: cio_sys::cio_listener_get_fd(listener),
-                })
-            }
-        }
-    }
-
-    pub fn unix_bind(addr: &str) -> Result<CioListener, Error> {
+    pub fn bind(addr: &str) -> Result<CioListener, Error> {
         let addr = CString::new(addr).unwrap();
         unsafe {
-            let listener = cio_sys::unix_listener_bind(addr.as_ptr());
+            let listener = cio_sys::cio_listener_bind(addr.as_ptr());
             if listener.is_null() {
                 Err(Error::last_os_error())
             } else {

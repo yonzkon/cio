@@ -35,11 +35,11 @@ fn main() {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
     // unix_server init
-    let unix_server = cio::CioListener::unix_bind("/tmp/cio")
+    let unix_server = cio::CioListener::bind("unix://tmp/cio-echo-server")
         .expect("listen unix failed");
 
     // tcp_server init
-    let tcp_server = cio::CioListener::tcp_bind("127.0.0.1:6000")
+    let tcp_server = cio::CioListener::bind("tcp://127.0.0.1:6000")
         .expect("listen tcp failed");
 
     // cio init

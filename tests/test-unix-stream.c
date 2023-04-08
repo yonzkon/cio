@@ -15,7 +15,7 @@
 #include "cio.h"
 #include "cio-stream.h"
 
-#define UNIX_ADDR "/tmp/cio-unix-stream-test"
+#define UNIX_ADDR "unix://tmp/cio-unix-stream-test"
 #define TOKEN_LISTENER 1
 #define TOKEN_STREAM 2
 
@@ -26,7 +26,7 @@ static void *client_thread(void *args)
 {
     (void)args;
 
-    struct cio_stream *stream = unix_stream_connect(UNIX_ADDR);
+    struct cio_stream *stream = cio_stream_connect(UNIX_ADDR);
     assert_true(stream);
 
     struct cio *ctx = cio_new();
@@ -76,7 +76,7 @@ static void *server_thread(void *args)
 {
     (void)args;
 
-    struct cio_listener *listener = unix_listener_bind(UNIX_ADDR);
+    struct cio_listener *listener = cio_listener_bind(UNIX_ADDR);
     assert_true(listener);
 
     struct cio *ctx = cio_new();

@@ -15,7 +15,7 @@
 #include "cio.h"
 #include "cio-stream.h"
 
-#define TCP_ADDR "127.0.0.1:1224"
+#define TCP_ADDR "tcp://127.0.0.1:1224"
 #define TOKEN_LISTENER 1
 #define TOKEN_STREAM 2
 
@@ -26,7 +26,7 @@ static void *client_thread(void *args)
 {
     (void)args;
 
-    struct cio_stream *stream = tcp_stream_connect(TCP_ADDR);
+    struct cio_stream *stream = cio_stream_connect(TCP_ADDR);
     assert_true(stream);
 
     struct cio *ctx = cio_new();
@@ -76,7 +76,7 @@ static void *server_thread(void *args)
 {
     (void)args;
 
-    struct cio_listener *listener = tcp_listener_bind(TCP_ADDR);
+    struct cio_listener *listener = cio_listener_bind(TCP_ADDR);
     assert_true(listener);
 
     struct cio *ctx = cio_new();
