@@ -122,7 +122,7 @@ static int unix_stream_recv(struct cio_stream *stream, void *buf, size_t len)
 static int unix_stream_send(struct cio_stream *stream, const void *buf, size_t len)
 {
     assert(stream->type != CIOS_T_LISTEN);
-    return send(stream->fd, buf, len, 0);
+    return send(stream->fd, buf, len, MSG_NOSIGNAL);
 }
 
 static struct cio_stream_operations unix_stream_ops = {
