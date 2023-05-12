@@ -13,6 +13,9 @@ if (BUILD_SHARED)
     set_target_properties(cio PROPERTIES PUBLIC_HEADER "${INC}")
     set_target_properties(cio PROPERTIES VERSION 0.0.1 SOVERSION 0)
     set(TARGET_SHARED cio)
+if (WIN32)
+    target_link_libraries(cio Ws2_32)
+endif ()
 endif ()
 
 install(TARGETS ${TARGET_STATIC} ${TARGET_SHARED}

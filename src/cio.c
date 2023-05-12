@@ -1,5 +1,12 @@
 #include "cio.h"
 #include <unistd.h>
+
+#ifndef __WIN32
+#include <sys/select.h>
+#else
+#include <Winsock2.h>
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -34,7 +41,7 @@ static void add_event(struct cio *ctx, struct stream *stream)
     }
 
     pos = malloc(sizeof(*pos));
-    bzero(pos, sizeof(*pos));
+    memset(pos, 0, sizeof(*pos));
     pos->fin = 0;
     pos->token = stream->token;
     pos->fd = stream->fd;
@@ -60,7 +67,7 @@ static void clear_event(struct cio *ctx)
 struct cio *cio_new()
 {
     struct cio *ctx = malloc(sizeof(*ctx));
-    bzero(ctx, sizeof(*ctx));
+    memset(ctx, 0, sizeof(*ctx));
     FD_ZERO(&ctx->fds_read);
     ctx->nfds_read = 0;
     FD_ZERO(&ctx->fds_write);
@@ -168,6 +175,7 @@ int cio_poll(struct cio *ctx, unsigned long usec)
             return -1;
     }
 
+#ifndef __WIN32
     int nr_fds_write = select(ctx->nfds_write, NULL, &fds_write, NULL, &tv);
     if (nr_fds_write == -1) {
         if (errno == EINTR)
@@ -175,6 +183,18 @@ int cio_poll(struct cio *ctx, unsigned long usec)
         else
             return -1;
     }
+#else
+    int nr_fds_write = 0;
+    if (fds_write.fd_count != 0) {
+        nr_fds_write = select(ctx->nfds_write, NULL, &fds_write, NULL, &tv);
+        if (nr_fds_write == -1) {
+            if (errno == EINTR)
+                return 0;
+            else
+                return -1;
+        }
+    }
+#endif
 
     //printf("[%p:poll]: nr_fds_read:%d, nr_fds_write:%d\n",
     //       ctx, nr_fds_read, nr_fds_write);

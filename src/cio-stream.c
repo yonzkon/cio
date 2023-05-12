@@ -1,13 +1,28 @@
 #include "cio-stream.h"
 #include <unistd.h>
+
+#ifndef __WIN32
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#else
+#include <Winsock2.h>
+
+#if defined(NO_SOCKLEN_T)
+typedef int socklen_t;
+#endif /* NO_SOCKLEN_T */
+
+#if !defined(MSG_NOSIGNAL)
+#define MSG_NOSIGNAL (0)
+#endif
+#endif
+
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 /**
  * cio_stream
@@ -110,120 +125,26 @@ static int __cio_stream_get_fd(struct cio_stream *stream)
 }
 
 /**
- * unix_stream
+ * tcp_stream
  */
 
-static int unix_stream_recv(struct cio_stream *stream, void *buf, size_t len)
+static int tcp_stream_recv(struct cio_stream *stream, void *buf, size_t len)
 {
     assert(stream->type != CIOS_T_LISTEN);
     return recv(stream->fd, buf, len, 0);
 }
 
-static int unix_stream_send(struct cio_stream *stream, const void *buf, size_t len)
+static int tcp_stream_send(struct cio_stream *stream, const void *buf, size_t len)
 {
     assert(stream->type != CIOS_T_LISTEN);
     return send(stream->fd, buf, len, MSG_NOSIGNAL);
 }
 
-static struct cio_stream_operations unix_stream_ops = {
-    .drop = __cio_stream_drop,
-    .get_fd = __cio_stream_get_fd,
-    .send = unix_stream_send,
-    .recv = unix_stream_recv,
-    .accept = NULL,
-};
-
-static struct cio_stream *unix_stream_connect(const char *addr)
-{
-    int fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd == -1)
-        return NULL;
-
-    int rc = 0;
-    struct sockaddr_un sockaddr = {0};
-    sockaddr.sun_family = PF_UNIX;
-    snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", addr);
-
-    rc = connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
-    if (rc == -1) {
-        perror("connect");
-        close(fd);
-        return NULL;
-    }
-
-    return __cio_stream_new(addr, fd, CIOS_T_CONNECT, &unix_stream_ops);
-}
-
-/**
- * unix_listener
- */
-
-static void unix_listener_drop(struct cio_stream *stream)
-{
-    unlink(stream->addr);
-    __cio_stream_drop(stream);
-}
-
-struct cio_stream *unix_listener_accept(struct cio_listener *listener)
-{
-    struct cio_stream *stream = (struct cio_stream *)listener;;
-    int fd = accept(stream->fd, NULL, NULL);
-    if (fd == -1) {
-        perror("accept");
-        return NULL;
-    }
-
-    return __cio_stream_new(stream->addr, fd, CIOS_T_ACCEPT, &unix_stream_ops);
-}
-
-static struct cio_stream_operations unix_listener_ops = {
-    .drop = unix_listener_drop,
-    .get_fd = __cio_stream_get_fd,
-    .send = NULL,
-    .recv = NULL,
-    .accept = unix_listener_accept,
-};
-
-static struct cio_listener *unix_listener_bind(const char *addr)
-{
-    int fd = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (fd == -1)
-        return NULL;
-
-    int rc = 0;
-    struct sockaddr_un sockaddr = {0};
-    sockaddr.sun_family = PF_UNIX;
-    snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", addr);
-
-    unlink(addr);
-
-    rc = bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
-    if (rc == -1) {
-        perror("bind");
-        close(fd);
-        return NULL;
-    }
-
-    rc = listen(fd, 1000);
-    if (rc == -1) {
-        perror("listen");
-        close(fd);
-        return NULL;
-    }
-
-    return (struct cio_listener *)__cio_stream_new(
-        addr, fd, CIOS_T_LISTEN, &unix_listener_ops);
-}
-
-/**
- * tcp_stream
- */
-
 static struct cio_stream_operations tcp_stream_ops = {
     .drop = __cio_stream_drop,
     .get_fd = __cio_stream_get_fd,
-    .send = unix_stream_send,
-    .recv = unix_stream_recv,
+    .send = tcp_stream_send,
+    .recv = tcp_stream_recv,
     .accept = NULL,
 };
 
@@ -262,12 +183,24 @@ static struct cio_stream *tcp_stream_connect(const char *addr)
  * tcp_listener
  */
 
+struct cio_stream *tcp_listener_accept(struct cio_listener *listener)
+{
+    struct cio_stream *stream = (struct cio_stream *)listener;;
+    int fd = accept(stream->fd, NULL, NULL);
+    if (fd == -1) {
+        perror("accept");
+        return NULL;
+    }
+
+    return __cio_stream_new(stream->addr, fd, CIOS_T_ACCEPT, &tcp_stream_ops);
+}
+
 static struct cio_stream_operations tcp_listener_ops = {
     .drop = __cio_stream_drop,
     .get_fd = __cio_stream_get_fd,
     .send = NULL,
     .recv = NULL,
-    .accept = unix_listener_accept,
+    .accept = tcp_listener_accept,
 };
 
 static struct cio_listener *tcp_listener_bind(const char *addr)
@@ -309,33 +242,131 @@ static struct cio_listener *tcp_listener_bind(const char *addr)
         addr, fd, CIOS_T_LISTEN, &tcp_listener_ops);
 }
 
+#ifndef __WIN32
+
+/**
+ * unix_stream
+ */
+
+static struct cio_stream_operations unix_stream_ops = {
+    .drop = __cio_stream_drop,
+    .get_fd = __cio_stream_get_fd,
+    .send = tcp_stream_send,
+    .recv = tcp_stream_recv,
+    .accept = NULL,
+};
+
+static struct cio_stream *unix_stream_connect(const char *addr)
+{
+    int fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (fd == -1)
+        return NULL;
+
+    int rc = 0;
+    struct sockaddr_un sockaddr = {0};
+    sockaddr.sun_family = PF_UNIX;
+    snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", addr);
+
+    rc = connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    if (rc == -1) {
+        perror("connect");
+        close(fd);
+        return NULL;
+    }
+
+    return __cio_stream_new(addr, fd, CIOS_T_CONNECT, &unix_stream_ops);
+}
+
+/**
+ * unix_listener
+ */
+
+static void unix_listener_drop(struct cio_stream *stream)
+{
+    unlink(stream->addr);
+    __cio_stream_drop(stream);
+}
+
+static struct cio_stream_operations unix_listener_ops = {
+    .drop = unix_listener_drop,
+    .get_fd = __cio_stream_get_fd,
+    .send = NULL,
+    .recv = NULL,
+    .accept = tcp_listener_accept,
+};
+
+static struct cio_listener *unix_listener_bind(const char *addr)
+{
+    int fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (fd == -1)
+        return NULL;
+
+    int rc = 0;
+    struct sockaddr_un sockaddr = {0};
+    sockaddr.sun_family = PF_UNIX;
+    snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", addr);
+
+    unlink(addr);
+
+    rc = bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+    if (rc == -1) {
+        perror("bind");
+        close(fd);
+        return NULL;
+    }
+
+    rc = listen(fd, 1000);
+    if (rc == -1) {
+        perror("listen");
+        close(fd);
+        return NULL;
+    }
+
+    return (struct cio_listener *)__cio_stream_new(
+        addr, fd, CIOS_T_LISTEN, &unix_listener_ops);
+}
+
+#endif
+
 /**
  * cio_stream_connect
  * cio_listener_bind
  */
 
+#ifdef __WIN32
+void __attribute__((constructor)) pre_main()
+{
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2,2), &wsaData);
+}
+#endif
+
 struct cio_stream *cio_stream_connect(const char *addr)
 {
-    if (strstr(addr, "unix:/") == addr) {
-        return unix_stream_connect(addr + strlen("unix:/"));
-    }
-
     if (strstr(addr, "tcp://") == addr) {
         return tcp_stream_connect(addr + strlen("tcp://"));
     }
+
+#ifndef __WIN32
+    if (strstr(addr, "unix:/") == addr) {
+        return unix_stream_connect(addr + strlen("unix:/"));
+    }
+#endif
 
     return NULL;
 }
 
 struct cio_listener *cio_listener_bind(const char *addr)
 {
-    if (strstr(addr, "unix:/") == addr) {
-        return unix_listener_bind(addr + strlen("unix:/"));
-    }
-
     if (strstr(addr, "tcp://") == addr) {
         return tcp_listener_bind(addr + strlen("tcp://"));
     }
+
+#ifndef __WIN32
+    if (strstr(addr, "unix:/") == addr) {
+        return unix_listener_bind(addr + strlen("unix:/"));
+    }
+#endif
 
     return NULL;
 }
