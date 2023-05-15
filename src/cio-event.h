@@ -3,7 +3,6 @@
 
 #include <sys/time.h>
 #include "list.h"
-#include "cio.h"
 #include "stream.h"
 
 #ifdef __cplusplus

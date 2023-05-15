@@ -1,4 +1,3 @@
-#include "cio.h"
 #include <unistd.h>
 
 #ifndef __WIN32
@@ -11,7 +10,8 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
+
+#include "cio.h"
 #include "cio-event.h"
 #include "stream.h"
 

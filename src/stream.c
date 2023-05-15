@@ -1,7 +1,7 @@
-#include "stream.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include "stream.h"
 
 struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
 {
