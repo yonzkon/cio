@@ -21,6 +21,5 @@ struct stream *stream_new(struct cio *ctx, int fd, int token, void *wrapper)
 void stream_drop(struct stream *stream)
 {
     stream->ctx = NULL;
-    list_del_init(&stream->ln);
     free(stream);
 }

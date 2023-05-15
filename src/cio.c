@@ -83,6 +83,7 @@ void cio_drop(struct cio *ctx)
     list_for_each_entry_safe(stream, n_stream, &ctx->streams, ln) {
         FD_CLR(stream->fd, &ctx->fds_read);
         FD_CLR(stream->fd, &ctx->fds_write);
+        list_del(&stream->ln);
         stream_drop(stream);
     }
 
@@ -102,6 +103,7 @@ int cio_register(struct cio *ctx, int fd, int token, int flags, void *wrapper)
         if (pos->fd == fd) {
             FD_CLR(fd, &ctx->fds_read);
             FD_CLR(fd, &ctx->fds_write);
+            list_del(&pos->ln);
             stream_drop(pos); // it's safe as we break at next line
             break;
         }
@@ -134,6 +136,7 @@ int cio_unregister(struct cio *ctx, int fd)
         if (pos->fd == fd) {
             FD_CLR(fd, &ctx->fds_read);
             FD_CLR(fd, &ctx->fds_write);
+            list_del(&pos->ln);
             stream_drop(pos);
             return 0;
         }
