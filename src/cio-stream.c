@@ -1,6 +1,8 @@
 #include <unistd.h>
 
-#ifndef __WIN32
+#if defined __unix__ || __APPLE__
+#include <fcntl.h>
+#include <termios.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
@@ -243,7 +245,7 @@ static struct cio_listener *tcp_listener_bind(const char *addr)
         addr, fd, CIOS_T_LISTEN, &tcp_listener_ops);
 }
 
-#ifndef __WIN32
+#if defined __unix__ || __APPLE__
 
 /**
  * unix_stream
@@ -330,11 +332,212 @@ static struct cio_listener *unix_listener_bind(const char *addr)
 #endif
 
 /**
+ * com_stream
+ */
+
+#if defined __unix__
+
+static int param_get_int(const char *name, int *value, const char *param)
+{
+    char *start, *end;
+
+    assert(name && value);
+    if (!param) return -1;
+
+    start = strstr(param, name);
+    if (!start) return -1;
+
+    start = strchr(start, '=');
+    if (!start) return -1;
+    start++;
+
+    end = strchr(start, ' ');
+    if (!end) end = strchr(start, '\0');
+
+    void *tmp = malloc(end - start + 1);
+    memset(tmp, 0, end - start + 1);
+    memcpy(tmp, start, end - start);
+
+    *value = atoi(tmp);
+    free(tmp);
+    return 0;
+}
+
+static int param_get_string(const char *name, void *buf, size_t size, const char *param)
+{
+    char *start, *end;
+
+    assert(name && buf && size);
+    if (!param) return -1;
+
+    start = strstr(param, name);
+    if (!start) return -1;
+
+    start = strchr(start, '=');
+    if (!start) return -1;
+    start++;
+
+    if (*start == '"') {
+        start++;
+        end = strchr(start, '"');
+        if (!end) return -1;
+    } else {
+        end = strchr(start, ' ');
+        if (!end) end = strchr(start, '\0');
+    }
+
+    memset(buf, 0, size);
+    memcpy(buf, start, size - 1 < (size_t)(end - start) ? size - 1 : (size_t)(end - start));
+    return 0;
+}
+
+static int com_stream_recv(struct cio_stream *stream, void *buf, size_t len)
+{
+    assert(stream->type == CIOS_T_CONNECT);
+    return read(stream->fd, buf, len);
+}
+
+static int com_stream_send(struct cio_stream *stream, const void *buf, size_t len)
+{
+    assert(stream->type == CIOS_T_CONNECT);
+    return write(stream->fd, buf, len);
+}
+
+static struct cio_stream_operations com_stream_ops = {
+    .drop = __cio_stream_drop,
+    .get_fd = __cio_stream_get_fd,
+    .send = com_stream_send,
+    .recv = com_stream_recv,
+    .accept = NULL,
+};
+
+static struct cio_stream *com_stream_connect(const char *addr)
+{
+    int baud = 9600;
+    int data_bit = 8;
+    int stop_bit = 1;
+    char parity[2] = "n";
+    char com_addr[1024] = {0};
+
+    assert(addr);
+    param_get_int("baud", &baud, addr);
+    param_get_int("data_bit", &data_bit, addr);
+    param_get_int("stop_bit", &stop_bit, addr);
+    param_get_string("parity", parity, sizeof parity, addr);
+    assert(sscanf(addr, "%1023[^?]", com_addr) == 1);
+
+    int fd = open(com_addr, O_RDWR | O_NOCTTY | O_NDELAY);
+    if (fd == -1)
+        return NULL;
+
+    struct termios newtio, oldtio;
+
+    if (tcgetattr(fd, &oldtio) != 0)
+        goto err_out;
+
+    memset(&newtio, 0, sizeof(newtio));
+    newtio.c_cflag |= (CLOCAL | CREAD);
+    newtio.c_cflag &= ~CSIZE;
+
+    if (baud == 110) {
+        cfsetispeed(&newtio, B110);
+    } else if (baud == 300) {
+        cfsetispeed(&newtio, B300);
+    } else if (baud == 600) {
+        cfsetispeed(&newtio, B600);
+    } else if (baud == 1200) {
+        cfsetispeed(&newtio, B1200);
+    } else if (baud == 2400) {
+        cfsetispeed(&newtio, B2400);
+    } else if (baud == 4800) {
+        cfsetispeed(&newtio, B4800);
+    } else if (baud == 9600) {
+        cfsetispeed(&newtio, B9600);
+    } else if (baud == 19200) {
+        cfsetispeed(&newtio, B19200);
+    } else if (baud == 38400) {
+        cfsetispeed(&newtio, B38400);
+    } else if (baud == 57600) {
+        cfsetispeed(&newtio, B57600);
+    } else if (baud == 115200) {
+        cfsetispeed(&newtio, B115200);
+    } else {
+        goto err_out;
+    }
+
+    if (data_bit == 5) {
+        newtio.c_cflag |= CS5;
+    } else if (data_bit == 6) {
+        newtio.c_cflag |= CS6;
+    } else if (data_bit == 7) {
+        newtio.c_cflag |= CS7;
+    } else if (data_bit == 8) {
+        newtio.c_cflag |= CS8;
+    } else {
+        goto err_out;
+    }
+
+    if (parity[0] == 'O') {
+        newtio.c_cflag |= PARENB;
+        newtio.c_cflag |= PARODD;
+        newtio.c_cflag |= (INPCK | ISTRIP);
+    } else if (parity[0] == 'E') {
+        newtio.c_cflag |= PARENB;
+        newtio.c_cflag &= ~PARODD;
+        newtio.c_cflag |= (INPCK | ISTRIP);
+    } else if (parity[0] == 'N') {
+        newtio.c_cflag &= ~PARENB;
+    } else {
+        goto err_out;
+    }
+
+    if (stop_bit == 1) {
+        newtio.c_cflag &= ~CSTOPB;
+    } else if (stop_bit == 2) {
+        newtio.c_cflag |= CSTOPB;
+    } else {
+        goto err_out;
+    }
+
+    /* Raw input */
+    newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+
+    /*
+     * C_OFLAG      Output options
+     * OPOST        Postprocess output (not set = raw output)
+     * ONLCR        Map NL to CR-NL
+     *
+     * ONCLR ant others needs OPOST to be enabled
+     */
+
+    /* Raw ouput */
+    newtio.c_oflag &= ~OPOST;
+
+    /* Software flow control is disabled */
+    newtio.c_iflag &= ~(IXON | IXOFF | IXANY);
+
+    newtio.c_cc[VTIME] = 0;
+    newtio.c_cc[VMIN] = 0;
+    tcflush(fd, TCIFLUSH);
+
+    if (tcsetattr(fd, TCSANOW, &newtio) != 0)
+        goto err_out;
+
+    return __cio_stream_new(addr, fd, CIOS_T_CONNECT, &com_stream_ops);
+
+err_out:
+    close(fd);
+    return NULL;
+}
+
+#endif
+
+/**
  * cio_stream_connect
  * cio_listener_bind
  */
 
-#ifdef __WIN32
+#ifdef __WIN32__
 void __attribute__((constructor)) pre_main()
 {
     WSADATA wsaData;
@@ -348,9 +551,15 @@ struct cio_stream *cio_stream_connect(const char *addr)
         return tcp_stream_connect(addr + strlen("tcp://"));
     }
 
-#ifndef __WIN32
+#if defined __unix__ || __APPLE__
     if (strstr(addr, "unix://") == addr) {
         return unix_stream_connect(addr + strlen("unix://"));
+    }
+#endif
+
+#if defined __unix__
+    if (strstr(addr, "com://") == addr) {
+        return com_stream_connect(addr + strlen("com://"));
     }
 #endif
 
@@ -363,7 +572,7 @@ struct cio_listener *cio_listener_bind(const char *addr)
         return tcp_listener_bind(addr + strlen("tcp://"));
     }
 
-#ifndef __WIN32
+#if defined __unix__ || __APPLE__
     if (strstr(addr, "unix://") == addr) {
         return unix_listener_bind(addr + strlen("unix://"));
     }
