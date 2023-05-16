@@ -35,7 +35,7 @@ fn main() {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
     // unix_server init
-    let unix_server = cio::CioListener::bind("unix://tmp/cio-echo-server")
+    let unix_server = cio::CioListener::bind("unix:///tmp/cio-echo-server")
         .expect("listen unix failed");
 
     // tcp_server init

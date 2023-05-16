@@ -349,8 +349,8 @@ struct cio_stream *cio_stream_connect(const char *addr)
     }
 
 #ifndef __WIN32
-    if (strstr(addr, "unix:/") == addr) {
-        return unix_stream_connect(addr + strlen("unix:/"));
+    if (strstr(addr, "unix://") == addr) {
+        return unix_stream_connect(addr + strlen("unix://"));
     }
 #endif
 
@@ -364,8 +364,8 @@ struct cio_listener *cio_listener_bind(const char *addr)
     }
 
 #ifndef __WIN32
-    if (strstr(addr, "unix:/") == addr) {
-        return unix_listener_bind(addr + strlen("unix:/"));
+    if (strstr(addr, "unix://") == addr) {
+        return unix_listener_bind(addr + strlen("unix://"));
     }
 #endif
 

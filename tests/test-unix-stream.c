@@ -15,7 +15,7 @@
 #include "cio.h"
 #include "cio-stream.h"
 
-#define UNIX_ADDR "unix://tmp/cio-unix-stream-test"
+#define UNIX_ADDR "unix:///tmp/cio-unix-stream-test"
 #define TOKEN_LISTENER 1
 #define TOKEN_STREAM 2
 
