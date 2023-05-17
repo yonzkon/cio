@@ -5,7 +5,7 @@ To write a echo server in C.
 const int TOKEN_LISTENER = 1;
 const int TOKEN_STREAM = 2;
 
-struct cio_listener *listener = tcp_listener_bind("127.0.0.1:6000");
+struct cio_listener *listener = cio_listener_bind("tcp://127.0.0.1:6000");
 struct cio *ctx = cio_new();
 cio_register(ctx, cio_listener_get_fd(listener), TOKEN_LISTENER, CIOF_READABLE, listener);
 
@@ -48,33 +48,38 @@ cio_drop(ctx);
 
 To write a echo server in Rust.
 ```rust
-// socket init
-let unix_server = cio::CioListener::unix_bind("/tmp/cio").expect("listen unix failed");
-let tcp_server = cio::CioListener::tcp_bind("127.0.0.1:6000").expect("listen tcp failed");
+// stream init
+let tcp_server = cio::CioListener::bind("tcp://127.0.0.1:6000").expect("listen tcp failed");
+let unix_server = cio::CioListener::bind("unix:///tmp/cio").expect("listen unix failed");
+let com_conn = cio::CioStream::connect(
+    "com:///dev/ttyUSB0?baud=115200&data_bit=8&stop_bit=1&parity=N")
+    .expect("connect com failed");
 
 // cio init
 let ctx = cio::Cio::new().unwrap();
-ctx.register(&unix_server, unix_server.fd, cio::CioFlag::READABLE);
 ctx.register(&tcp_server, tcp_server.fd, cio::CioFlag::READABLE);
+ctx.register(&unix_server, unix_server.fd, cio::CioFlag::READABLE);
+ctx.register(&com_conn, com_conn.fd, cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
 
-// cio accepted streams init
+// accepted streams init
 let mut streams: HashMap<i32, cio::CioStream> = HashMap::new();
+streams.insert(com_conn.fd, com_conn);
 
 loop {
     assert!(ctx.poll(100 * 1000) != -1);
     while let Some(ev) = ctx.cio_iter() {
         match ev.get_token() {
-            x if x == unix_server.fd => {
-                if ev.is_readable() {
-                    let new_stream = unix_server.accept().expect("accept failed");
+            x if x == tcp_server.fd => {
+                if ev.is_readable()  {
+                    let new_stream = tcp_server.accept().expect("accept failed");
                     ctx.register(&new_stream, new_stream.fd,
                                  cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
                     streams.insert(new_stream.fd, new_stream);
                 }
             },
-            x if x == tcp_server.fd => {
-                if ev.is_readable()  {
-                    let new_stream = tcp_server.accept().expect("accept failed");
+            x if x == unix_server.fd => {
+                if ev.is_readable() {
+                    let new_stream = unix_server.accept().expect("accept failed");
                     ctx.register(&new_stream, new_stream.fd,
                                  cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
                     streams.insert(new_stream.fd, new_stream);

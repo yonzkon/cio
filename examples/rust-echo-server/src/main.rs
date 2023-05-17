@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use std::collections::HashMap;
-use log::{info, error};
+use log::{debug, info, error};
 use clap::Parser;
 
 static EXIT_FLANG: Mutex<i32> = Mutex::new(0);
@@ -34,26 +34,27 @@ fn main() {
     // logger init
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
-    // unix_server init
-    let unix_server = cio::CioListener::bind("unix:///tmp/cio-echo-server")
-        .expect("listen unix failed");
-
-    // tcp_server init
-    let tcp_server = cio::CioListener::bind("tcp://127.0.0.1:6000")
-        .expect("listen tcp failed");
-
-    // cio init
-    let ctx = cio::Cio::new().unwrap();
-    ctx.register(&unix_server, unix_server.fd, cio::CioFlag::READABLE);
-    ctx.register(&tcp_server, tcp_server.fd, cio::CioFlag::READABLE);
-
-    // cio accepted streams init
-    let mut streams: HashMap<i32, cio::CioStream> = HashMap::new();
-
     // signal
     ctrlc::set_handler(move || {
         *EXIT_FLANG.lock().unwrap() = 1;
     }).expect("Error setting Ctrl-C handler");
+
+    // stream init
+    let tcp_server = cio::CioListener::bind("tcp://127.0.0.1:6000").expect("listen tcp failed");
+    let unix_server = cio::CioListener::bind("unix:///tmp/cio").expect("listen unix failed");
+    let com_conn = cio::CioStream::connect(
+        "com:///dev/ttyUSB0?baud=115200&data_bit=8&stop_bit=1&parity=n")
+        .expect("connect com failed");
+
+    // cio init
+    let ctx = cio::Cio::new().unwrap();
+    ctx.register(&tcp_server, tcp_server.fd, cio::CioFlag::READABLE);
+    ctx.register(&unix_server, unix_server.fd, cio::CioFlag::READABLE);
+    ctx.register(&com_conn, com_conn.fd, cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
+
+    // accepted streams init
+    let mut streams: HashMap<i32, cio::CioStream> = HashMap::new();
+    streams.insert(com_conn.fd, com_conn);
 
     loop {
         if *EXIT_FLANG.lock().unwrap() == 1 {
@@ -61,22 +62,21 @@ fn main() {
         }
 
         assert!(ctx.poll(100 * 1000) != -1);
-
         while let Some(ev) = ctx.cio_iter() {
-            info!("token:{}, readable:{}, writable:{}",
+            debug!("token:{}, readable:{}, writable:{}",
                   ev.get_token(), ev.is_readable(), ev.is_writable());
             match ev.get_token() {
-                x if x == unix_server.fd => {
-                    if ev.is_readable() {
-                        let new_stream = unix_server.accept().expect("accept failed");
+                x if x == tcp_server.fd => {
+                    if ev.is_readable()  {
+                        let new_stream = tcp_server.accept().expect("accept failed");
                         ctx.register(&new_stream, new_stream.fd,
                                      cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
                         streams.insert(new_stream.fd, new_stream);
                     }
                 },
-                x if x == tcp_server.fd => {
-                    if ev.is_readable()  {
-                        let new_stream = tcp_server.accept().expect("accept failed");
+                x if x == unix_server.fd => {
+                    if ev.is_readable() {
+                        let new_stream = unix_server.accept().expect("accept failed");
                         ctx.register(&new_stream, new_stream.fd,
                                      cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
                         streams.insert(new_stream.fd, new_stream);
@@ -87,10 +87,10 @@ fn main() {
                         if let Some(stream) = streams.get(&ev.get_token()) {
                             let mut buf: [u8;256] = [0;256];
                             let nr = stream.recv(&mut buf);
+                            info!("nr:{}, recv:{}", nr, std::str::from_utf8(&buf).unwrap());
                             if nr == 0 || nr == -1 {
                                 ctx.unregister(&streams.remove(&ev.get_token()).unwrap());
                             } else if ev.is_writable() {
-                                info!("nr:{}, buf:{}", nr, std::str::from_utf8(&buf).unwrap());
                                 stream.send(&buf);
                             }
                         } else {
