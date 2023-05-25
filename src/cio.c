@@ -270,7 +270,7 @@ int cioe_get_token(struct cio_event *ev)
     return ev->token;
 }
 
-int cioe_get_fd(struct cio_event *ev)
+int cioe_getfd(struct cio_event *ev)
 {
     return ev->fd;
 }

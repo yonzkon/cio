@@ -65,7 +65,7 @@ static void *client_thread(void *args)
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
                 case TOKEN_STREAM: {
-                    int fd = cioe_get_fd(ev);
+                    int fd = cioe_getfd(ev);
                     if (cioe_is_writable(ev)) {
                         char *payload = "from client";
                         int nr = send(fd, payload, strlen(payload), 0);
@@ -145,7 +145,7 @@ static void *server_thread(void *args)
                    cioe_get_token(ev), cioe_is_readable(ev), cioe_is_writable(ev));
             switch (cioe_get_token(ev)) {
                 case TOKEN_LISTENER: {
-                    int fd = cioe_get_fd(ev);
+                    int fd = cioe_getfd(ev);
                     if (cioe_is_readable(ev)) {
                         int new_fd = accept(fd, NULL, NULL);
                         cio_register(ctx, new_fd, TOKEN_STREAM, CIOF_READABLE | CIOF_WRITABLE, NULL);
@@ -153,7 +153,7 @@ static void *server_thread(void *args)
                     break;
                 }
                 case TOKEN_STREAM: {
-                    int fd = cioe_get_fd(ev);
+                    int fd = cioe_getfd(ev);
                     if (cioe_is_readable(ev)) {
                         char buf[256] = {0};
                         int nr = recv(fd, buf, sizeof(buf), 0);

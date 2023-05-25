@@ -10,7 +10,7 @@ impl CioFlag {
 }
 
 pub trait CioWrapper {
-    fn get_fd(&self) -> i32;
+    fn getfd(&self) -> i32;
     fn get_wrapper(&self) -> *mut c_void;
 }
 
@@ -20,7 +20,6 @@ pub trait CioWrapper {
 
 pub struct CioStream {
     pub stream: *mut cio_sys::cio_stream,
-    pub fd: i32,
 }
 
 unsafe impl Send for CioStream {}
@@ -29,15 +28,15 @@ unsafe impl Sync for CioStream {}
 impl Drop for CioStream {
     fn drop(&mut self) {
         unsafe {
-            trace!("drop CioStream:{}", self.fd);
+            trace!("drop CioStream:{}", self.getfd());
             cio_sys::cio_stream_drop(self.stream);
         }
     }
 }
 
 impl CioWrapper for CioStream {
-    fn get_fd(&self) -> i32 {
-        return self.fd;
+    fn getfd(&self) -> i32 {
+        return self.getfd();
     }
 
     fn get_wrapper(&self) -> *mut c_void {
@@ -53,16 +52,13 @@ impl CioStream {
             if stream.is_null() {
                 Err(Error::last_os_error())
             } else {
-                Ok(CioStream {
-                    stream: stream,
-                    fd: cio_sys::cio_stream_get_fd(stream),
-                })
+                Ok(CioStream { stream: stream })
             }
         }
     }
 
-    pub fn get_fd(&self) -> i32 {
-        unsafe { return cio_sys::cio_stream_get_fd(self.stream); }
+    pub fn getfd(&self) -> i32 {
+        unsafe { return cio_sys::cio_stream_getfd(self.stream); }
     }
 
     pub fn recv(&self, buf: &mut [u8]) ->i32 {
@@ -86,7 +82,6 @@ impl CioStream {
 
 pub struct CioListener {
     pub listener: *mut cio_sys::cio_listener,
-    pub fd: i32,
 }
 
 unsafe impl Send for CioListener {}
@@ -95,15 +90,15 @@ unsafe impl Sync for CioListener {}
 impl Drop for CioListener {
     fn drop(&mut self) {
         unsafe {
-            trace!("drop CioListener:{}", self.fd);
+            trace!("drop CioListener:{}", self.getfd());
             cio_sys::cio_listener_drop(self.listener);
         }
     }
 }
 
 impl CioWrapper for CioListener {
-    fn get_fd(&self) -> i32 {
-        return self.fd;
+    fn getfd(&self) -> i32 {
+        return self.getfd();
     }
 
     fn get_wrapper(&self) -> *mut c_void {
@@ -119,16 +114,13 @@ impl CioListener {
             if listener.is_null() {
                 Err(Error::last_os_error())
             } else {
-                Ok(CioListener {
-                    listener: listener,
-                    fd: cio_sys::cio_listener_get_fd(listener),
-                })
+                Ok(CioListener { listener: listener })
             }
         }
     }
 
-    pub fn get_fd(&self) -> i32 {
-        unsafe { return cio_sys::cio_listener_get_fd(self.listener); }
+    pub fn getfd(&self) -> i32 {
+        unsafe { return cio_sys::cio_listener_getfd(self.listener); }
     }
 
     pub fn accept(&self) -> Result<CioStream, Error> {
@@ -137,10 +129,7 @@ impl CioListener {
             if stream.is_null() {
                 Err(Error::last_os_error())
             } else {
-                Ok(CioStream {
-                    stream: stream,
-                    fd: cio_sys::cio_stream_get_fd(stream),
-                })
+                Ok(CioStream { stream: stream })
             }
         }
     }
@@ -179,8 +168,8 @@ impl CioEvent {
         unsafe { return cio_sys::cioe_get_token(self.ev); }
     }
 
-    pub fn get_fd(&self) -> i32 {
-        unsafe { return cio_sys::cioe_get_fd(self.ev); }
+    pub fn getfd(&self) -> i32 {
+        unsafe { return cio_sys::cioe_getfd(self.ev); }
     }
 }
 
@@ -221,14 +210,14 @@ impl Cio {
     {
         unsafe {
             return cio_sys::cio_register(
-                self.ctx, wr.get_fd(), token, flags, wr.get_wrapper());
+                self.ctx, wr.getfd(), token, flags, wr.get_wrapper());
         }
     }
 
     pub fn unregister<T>(&self, wr: &T) -> i32
     where T: CioWrapper,
     {
-        unsafe { return cio_sys::cio_unregister(self.ctx, wr.get_fd()); }
+        unsafe { return cio_sys::cio_unregister(self.ctx, wr.getfd()); }
     }
 
     pub fn poll(&self, usec: u64) -> i32 {

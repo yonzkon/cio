@@ -63,10 +63,10 @@ int cioe_is_writable(struct cio_event *ev);
 int cioe_get_token(struct cio_event *ev);
 
 /**
- * cioe_get_fd
+ * cioe_getfd
  * @return: file descriptor
  */
-int cioe_get_fd(struct cio_event *ev);
+int cioe_getfd(struct cio_event *ev);
 
 /**
  * cioe_get_wrapper

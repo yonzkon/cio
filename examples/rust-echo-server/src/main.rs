@@ -48,13 +48,13 @@ fn main() {
 
     // cio init
     let ctx = cio::Cio::new().unwrap();
-    ctx.register(&tcp_server, tcp_server.fd, cio::CioFlag::READABLE);
-    ctx.register(&unix_server, unix_server.fd, cio::CioFlag::READABLE);
-    ctx.register(&com_conn, com_conn.fd, cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
+    ctx.register(&tcp_server, tcp_server.getfd(), cio::CioFlag::READABLE);
+    ctx.register(&unix_server, unix_server.getfd(), cio::CioFlag::READABLE);
+    ctx.register(&com_conn, com_conn.getfd(), cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
 
     // accepted streams init
     let mut streams: HashMap<i32, cio::CioStream> = HashMap::new();
-    streams.insert(com_conn.fd, com_conn);
+    streams.insert(com_conn.getfd(), com_conn);
 
     loop {
         if *EXIT_FLANG.lock().unwrap() == 1 {
@@ -66,20 +66,20 @@ fn main() {
             debug!("token:{}, readable:{}, writable:{}",
                   ev.get_token(), ev.is_readable(), ev.is_writable());
             match ev.get_token() {
-                x if x == tcp_server.fd => {
+                x if x == tcp_server.getfd() => {
                     if ev.is_readable()  {
                         let new_stream = tcp_server.accept().expect("accept failed");
-                        ctx.register(&new_stream, new_stream.fd,
+                        ctx.register(&new_stream, new_stream.getfd(),
                                      cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
-                        streams.insert(new_stream.fd, new_stream);
+                        streams.insert(new_stream.getfd(), new_stream);
                     }
                 },
-                x if x == unix_server.fd => {
+                x if x == unix_server.getfd() => {
                     if ev.is_readable() {
                         let new_stream = unix_server.accept().expect("accept failed");
-                        ctx.register(&new_stream, new_stream.fd,
+                        ctx.register(&new_stream, new_stream.getfd(),
                                      cio::CioFlag::READABLE | cio::CioFlag::WRITABLE);
-                        streams.insert(new_stream.fd, new_stream);
+                        streams.insert(new_stream.getfd(), new_stream);
                     }
                 },
                 _ => {

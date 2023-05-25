@@ -7,7 +7,7 @@ const int TOKEN_STREAM = 2;
 
 struct cio_listener *listener = cio_listener_bind("tcp://127.0.0.1:6000");
 struct cio *ctx = cio_new();
-cio_register(ctx, cio_listener_get_fd(listener), TOKEN_LISTENER, CIOF_READABLE, listener);
+cio_register(ctx, cio_listener_getfd(listener), TOKEN_LISTENER, CIOF_READABLE, listener);
 
 for (;;) {
     assert(cio_poll(ctx, 100 * 1000) == 0);
@@ -18,7 +18,7 @@ for (;;) {
                 struct cio_listener *listener = cioe_get_wrapper(ev);
                 if (cioe_is_readable(ev)) {
                     struct cio_stream *new_stream = cio_listener_accept(listener);
-                    cio_register(ctx, cio_stream_get_fd(new_stream), TOKEN_STREAM,
+                    cio_register(ctx, cio_stream_getfd(new_stream), TOKEN_STREAM,
                                  CIOF_READABLE | CIOF_WRITABLE, new_stream);
                 }
                 break;
@@ -29,7 +29,7 @@ for (;;) {
                     char buf[256] = {0};
                     int nr = cio_stream_recv(stream, buf, sizeof(buf));
                     if (nr == 0 || nr == -1) {
-                        cio_unregister(ctx, cio_stream_get_fd(stream));
+                        cio_unregister(ctx, cio_stream_getfd(stream));
                         cio_stream_drop(stream);
                     } else if (cioe_is_writable(ev)) {
                         cio_stream_send(stream, buf, nr);
@@ -41,7 +41,7 @@ for (;;) {
     }
 }
 
-cio_unregister(ctx, cio_listener_get_fd(listener));
+cio_unregister(ctx, cio_listener_getfd(listener));
 cio_listener_drop(listener);
 cio_drop(ctx);
 ```
