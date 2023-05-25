@@ -20,6 +20,7 @@ pub trait CioWrapper {
 
 pub struct CioStream {
     pub stream: *mut cio_sys::cio_stream,
+    pub auto_drop: bool,
 }
 
 unsafe impl Send for CioStream {}
@@ -28,8 +29,10 @@ unsafe impl Sync for CioStream {}
 impl Drop for CioStream {
     fn drop(&mut self) {
         unsafe {
-            trace!("drop CioStream:{}", self.getfd());
-            cio_sys::cio_stream_drop(self.stream);
+            if self.auto_drop {
+                trace!("drop CioStream:{}", self.getfd());
+                cio_sys::cio_stream_drop(self.stream);
+            }
         }
     }
 }
@@ -52,7 +55,7 @@ impl CioStream {
             if stream.is_null() {
                 Err(Error::last_os_error())
             } else {
-                Ok(CioStream { stream: stream })
+                Ok(CioStream { stream: stream, auto_drop: true })
             }
         }
     }
@@ -129,7 +132,7 @@ impl CioListener {
             if stream.is_null() {
                 Err(Error::last_os_error())
             } else {
-                Ok(CioStream { stream: stream })
+                Ok(CioStream { stream: stream, auto_drop: true })
             }
         }
     }
