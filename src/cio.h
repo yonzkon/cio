@@ -1,6 +1,8 @@
 #ifndef __CIO_H
 #define __CIO_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,7 +41,7 @@ int cio_unregister(struct cio *ctx, int fd);
 /**
  * cio_poll
  */
-int cio_poll(struct cio *ctx, unsigned long usec);
+int cio_poll(struct cio *ctx, uint64_t usec);
 
 /**
  * cioe_iter
@@ -78,7 +80,7 @@ void *cioe_get_wrapper(struct cio_event *ev);
  * cioe_get_ts
  * @return: timestamp: usec
  */
-unsigned long cioe_get_ts(struct cio_event *ev);
+uint64_t cioe_get_ts(struct cio_event *ev);
 
 #ifdef __cplusplus
 }

@@ -23,9 +23,9 @@ typedef int socklen_t;
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include "cio-stream.h"
-#include "types.h"
 
 /**
  * cio_stream
@@ -157,8 +157,8 @@ static struct cio_stream *tcp_stream_connect(const char *addr)
     if (fd == -1)
         return NULL;
 
-    u32 host;
-    u16 port;
+    uint32_t host;
+    uint16_t port;
     char *tmp = strdup(addr);
     char *colon = strchr(tmp, ':');
     *colon = 0;
@@ -212,8 +212,8 @@ static struct cio_listener *tcp_listener_bind(const char *addr)
     if (fd == -1)
         return NULL;
 
-    u32 host;
-    u16 port;
+    uint32_t host;
+    uint16_t port;
     char *tmp = strdup(addr);
     char *colon = strchr(tmp, ':');
     *colon = 0;

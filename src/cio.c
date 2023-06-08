@@ -159,7 +159,7 @@ static void cio_idle(struct cio *ctx, unsigned long usec)
     }
 }
 
-int cio_poll(struct cio *ctx, unsigned long usec)
+int cio_poll(struct cio *ctx, uint64_t usec)
 {
     gettimeofday(&ctx->poll_ts, NULL);
     clear_event(ctx);
@@ -205,7 +205,7 @@ int cio_poll(struct cio *ctx, unsigned long usec)
     struct stream *pos;
     list_for_each_entry(pos, &ctx->streams, ln) {
         // save previous writable state
-        u8 pre_writable = pos->state.bits.writable;
+        uint8_t pre_writable = pos->state.bits.writable;
 
         // clear state
         pos->state.byte = 0;
@@ -280,7 +280,7 @@ void *cioe_get_wrapper(struct cio_event *ev)
     return ev->wrapper;
 }
 
-unsigned long cioe_get_ts(struct cio_event *ev)
+uint64_t cioe_get_ts(struct cio_event *ev)
 {
     return ev->ts.tv_sec * 1000 * 1000 + ev->ts.tv_usec;
 }

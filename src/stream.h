@@ -1,7 +1,7 @@
 #ifndef __STREAM_H
 #define __STREAM_H
 
-#include "types.h"
+#include <stdint.h>
 #include "list.h"
 
 #ifdef __cplusplus
@@ -9,10 +9,10 @@ extern "C" {
 #endif
 
 union stream_state {
-    u8 byte;
+    uint8_t byte;
     struct {
-        u8 readable:1;
-        u8 writable:1;
+        uint8_t readable:1;
+        uint8_t writable:1;
     } bits;
 };
 
