@@ -1,6 +1,6 @@
 #include <unistd.h>
 
-#if defined __unix__ || __APPLE__
+#ifndef WIN32
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/socket.h>
@@ -537,7 +537,7 @@ err_out:
  * cio_listener_bind
  */
 
-#ifdef __WIN32__
+#ifdef WIN32
 void __attribute__((constructor)) pre_main()
 {
     WSADATA wsaData;

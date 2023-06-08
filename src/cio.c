@@ -1,6 +1,6 @@
 #include <unistd.h>
 
-#ifndef __WIN32
+#ifndef WIN32
 #include <sys/select.h>
 #else
 #include <Winsock2.h>
@@ -178,7 +178,7 @@ int cio_poll(struct cio *ctx, unsigned long usec)
             return -1;
     }
 
-#ifndef __WIN32
+#ifndef WIN32
     int nr_fds_write = select(ctx->nfds_write, NULL, &fds_write, NULL, &tv);
     if (nr_fds_write == -1) {
         if (errno == EINTR)
